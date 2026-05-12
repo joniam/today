@@ -143,6 +143,24 @@ body {
   word-break: break-word;
 }
 
+.row-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-shadow: inherit;
+  padding: 0;
+  margin: 0;
+  caret-color: currentColor;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .empty-hint {
   padding: 10px var(--row-padding-x);
   font-size: calc(var(--row-text-size) - 1px);

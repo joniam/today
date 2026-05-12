@@ -1,15 +1,16 @@
-import { BUCKET_ORDER, bucketItems, flattenedForRender, subscribe } from './state';
+import { addItem, BUCKET_ORDER, bucketItems, deleteItem, editItem, flattenedForRender, state, subscribe } from './state';
 import type { Bucket, Item } from './types';
 import { rowBackgroundForPosition } from './ui/colors';
 
 const EMPTY_HINTS: Record<Bucket, string> = {
-  today: 'Pull down to add your first item',
+  today: 'Tap to add',
   soon: 'Tap to add',
   later: 'Tap to add',
 };
 
 let listEl: HTMLElement | null = null;
 let rafId: number | null = null;
+let editingId: string | null = null;
 
 export function init(mount: HTMLElement): void {
   buildShell(mount);
@@ -30,6 +31,7 @@ function buildShell(mount: HTMLElement): void {
 
   const list = document.createElement('div');
   list.className = 'list';
+  list.addEventListener('click', onListClick);
   app.appendChild(list);
   listEl = list;
 
@@ -74,6 +76,16 @@ function render(): void {
     }
   }
   listEl.replaceChildren(next);
+
+  if (editingId !== null) {
+    const input = listEl.querySelector<HTMLInputElement>(
+      `.row[data-id="${cssEscape(editingId)}"] .row-input`,
+    );
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
 }
 
 function renderBucket(
@@ -112,9 +124,99 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
     row.style.backgroundImage = rowBackgroundForPosition(index, total);
   }
 
-  const text = document.createElement('span');
-  text.className = 'row-text';
-  text.textContent = item.text;
-  row.appendChild(text);
+  if (editingId === item.id) {
+    row.appendChild(renderInput(item));
+  } else {
+    const text = document.createElement('span');
+    text.className = 'row-text';
+    text.textContent = item.text;
+    row.appendChild(text);
+  }
   return row;
+}
+
+function renderInput(item: Item): HTMLInputElement {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'row-input';
+  input.value = item.text;
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+
+  let cancelled = false;
+
+  const commit = () => {
+    if (cancelled) return;
+    commitEdit(item.id, input.value);
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelled = true;
+      cancelEdit(item.id);
+    }
+  });
+
+  return input;
+}
+
+function onListClick(e: MouseEvent): void {
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+
+  const row = target.closest<HTMLElement>('.row');
+  if (row) {
+    const id = row.dataset.id;
+    if (id && editingId !== id) startEdit(id);
+    return;
+  }
+
+  const emptyBucket = target.closest<HTMLElement>('.bucket-empty');
+  if (emptyBucket) {
+    const bucket = emptyBucket.dataset.bucket as Bucket | undefined;
+    if (bucket) {
+      const item = addItem('', bucket);
+      editingId = item.id;
+    }
+  }
+}
+
+function startEdit(id: string): void {
+  editingId = id;
+  scheduleRender();
+}
+
+function commitEdit(id: string, value: string): void {
+  const trimmed = value.trim();
+  const item = state.items.find((i) => i.id === id);
+  if (item) {
+    if (trimmed === '' && item.text === '') {
+      deleteItem(id);
+    } else if (trimmed !== '' && trimmed !== item.text) {
+      editItem(id, trimmed);
+    }
+  }
+  editingId = null;
+  scheduleRender();
+}
+
+function cancelEdit(id: string): void {
+  const item = state.items.find((i) => i.id === id);
+  if (item && item.text === '') {
+    deleteItem(id);
+  }
+  editingId = null;
+  scheduleRender();
+}
+
+function cssEscape(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, '\\$&');
 }

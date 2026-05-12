@@ -32,7 +32,7 @@ Phased plan for Claude Code to execute. Each phase ends at a testable, committab
 
 Commit: "Phase 1: render initial state."
 
-## Phase 2: Tap to edit, basic editing
+## Phase 2: Tap to edit, basic editing ✅
 
 - Click/tap on a row enters edit mode (replace text with input element, focus, select).
 - Blur or Enter commits. Escape cancels.
