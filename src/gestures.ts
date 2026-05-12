@@ -1,8 +1,9 @@
-const SWIPE_THRESHOLD_RATIO = 0.4;
+const SWIPE_THRESHOLD_PX = 90;
 const SCROLL_DOMINANCE = 8;
 const TAP_MOVE_LIMIT = 8;
 const TAP_TIME_LIMIT = 400;
 const SNAP_DURATION_MS = 150;
+const COMMIT_DELETE_DURATION_MS = 200;
 
 export interface RowGestureCallbacks {
   onTap: () => void;
@@ -11,6 +12,18 @@ export interface RowGestureCallbacks {
 }
 
 type Mode = 'idle' | 'tracking' | 'swipe' | 'scroll';
+
+interface VibrateNavigator {
+  vibrate?: (pattern: number | number[]) => boolean;
+}
+
+function vibrate(pattern: number | number[]): void {
+  try {
+    (navigator as VibrateNavigator).vibrate?.(pattern);
+  } catch {
+    /* unsupported */
+  }
+}
 
 export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbacks): void {
   const content = row.querySelector<HTMLElement>('.row-content');
@@ -22,25 +35,28 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   let mode: Mode = 'idle';
   let currentDx = 0;
   let captured = false;
+  let pastThreshold = false;
 
-  function clearTransform(): void {
-    content!.style.transform = '';
-    content!.style.transition = '';
-    row.classList.remove('show-complete', 'show-delete');
+  function release(pointerId: number): void {
+    if (!captured) return;
+    try {
+      row.releasePointerCapture(pointerId);
+    } catch {
+      /* already released */
+    }
+    captured = false;
   }
 
-  function snapBack(pointerId: number | null): void {
-    if (captured && pointerId !== null) {
-      try {
-        row.releasePointerCapture(pointerId);
-      } catch {
-        /* already released */
-      }
-      captured = false;
+  function setPastThreshold(value: boolean): void {
+    if (value === pastThreshold) return;
+    pastThreshold = value;
+    if (value) {
+      row.classList.add('past-threshold');
+      vibrate(10);
+    } else {
+      row.classList.remove('past-threshold');
+      vibrate([3, 3, 3]);
     }
-    content!.style.transition = `transform ${SNAP_DURATION_MS}ms ease`;
-    content!.style.transform = 'translateX(0)';
-    window.setTimeout(clearTransform, SNAP_DURATION_MS);
   }
 
   function applyVisualForDx(dx: number): void {
@@ -48,12 +64,49 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
     if (dx > 0) {
       row.classList.add('show-complete');
       row.classList.remove('show-delete');
+      setPastThreshold(dx > SWIPE_THRESHOLD_PX);
     } else if (dx < 0) {
       row.classList.add('show-delete');
       row.classList.remove('show-complete');
+      setPastThreshold(dx < -SWIPE_THRESHOLD_PX);
     } else {
       row.classList.remove('show-complete', 'show-delete');
+      setPastThreshold(false);
     }
+  }
+
+  function clearTransform(): void {
+    content!.style.transform = '';
+    content!.style.transition = '';
+    row.classList.remove('show-complete', 'show-delete', 'past-threshold');
+    pastThreshold = false;
+  }
+
+  function snapBack(pointerId: number): void {
+    release(pointerId);
+    content!.style.transition = `transform ${SNAP_DURATION_MS}ms ease`;
+    content!.style.transform = 'translateX(0)';
+    row.classList.remove('past-threshold');
+    pastThreshold = false;
+    window.setTimeout(clearTransform, SNAP_DURATION_MS);
+  }
+
+  function commitComplete(pointerId: number): void {
+    release(pointerId);
+    content!.style.transition = `transform ${SNAP_DURATION_MS}ms ease`;
+    content!.style.transform = 'translateX(0)';
+    window.setTimeout(() => callbacks.onCompleteCommit(), SNAP_DURATION_MS);
+  }
+
+  function commitDelete(pointerId: number): void {
+    release(pointerId);
+    const h = row.offsetHeight;
+    row.style.height = `${h}px`;
+    void row.offsetHeight;
+    row.style.transition = `height ${COMMIT_DELETE_DURATION_MS}ms ease, opacity ${COMMIT_DELETE_DURATION_MS}ms ease`;
+    row.style.height = '0';
+    row.style.opacity = '0';
+    window.setTimeout(() => callbacks.onDeleteCommit(), COMMIT_DELETE_DURATION_MS);
   }
 
   row.addEventListener('pointerdown', (e: PointerEvent) => {
@@ -108,31 +161,14 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
     }
 
     if (mode === 'swipe') {
-      const threshold = row.offsetWidth * SWIPE_THRESHOLD_RATIO;
-      if (currentDx > threshold) {
+      if (currentDx > SWIPE_THRESHOLD_PX) {
         mode = 'idle';
-        if (captured) {
-          try {
-            row.releasePointerCapture(e.pointerId);
-          } catch {
-            /* already released */
-          }
-          captured = false;
-        }
-        callbacks.onCompleteCommit();
+        commitComplete(e.pointerId);
         return;
       }
-      if (currentDx < -threshold) {
+      if (currentDx < -SWIPE_THRESHOLD_PX) {
         mode = 'idle';
-        if (captured) {
-          try {
-            row.releasePointerCapture(e.pointerId);
-          } catch {
-            /* already released */
-          }
-          captured = false;
-        }
-        callbacks.onDeleteCommit();
+        commitDelete(e.pointerId);
         return;
       }
       snapBack(e.pointerId);
@@ -145,14 +181,7 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
       snapBack(e.pointerId);
     } else {
       clearTransform();
-      if (captured) {
-        try {
-          row.releasePointerCapture(e.pointerId);
-        } catch {
-          /* already released */
-        }
-        captured = false;
-      }
+      release(e.pointerId);
     }
     mode = 'idle';
   });

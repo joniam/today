@@ -145,12 +145,14 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
 
   const completeAction = document.createElement('div');
   completeAction.className = 'row-action row-action-complete';
-  completeAction.textContent = '✓';
+  completeAction.innerHTML =
+    '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16 L13 23 L26 9" /></svg>';
   row.appendChild(completeAction);
 
   const deleteAction = document.createElement('div');
   deleteAction.className = 'row-action row-action-delete';
-  deleteAction.textContent = '✕';
+  deleteAction.innerHTML =
+    '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M8 8 L24 24 M24 8 L8 24" /></svg>';
   row.appendChild(deleteAction);
 
   const content = document.createElement('div');

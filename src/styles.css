@@ -145,10 +145,7 @@ body {
   position: absolute;
   inset: 0;
   align-items: center;
-  padding: 0 calc(var(--row-padding-x) + 4px);
-  color: #ffffff;
-  font-size: 22px;
-  font-weight: 700;
+  padding: 0 22px;
   z-index: 0;
 }
 
@@ -161,13 +158,35 @@ body {
 }
 
 .row-action-complete {
-  background: #2e7d32;
+  background: #1ec850;
   justify-content: flex-start;
+  color: #ffffff;
 }
 
 .row-action-delete {
-  background: #b3261e;
+  background: #0c0c0c;
   justify-content: flex-end;
+  color: #ef4444;
+}
+
+.row-action svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.row.past-threshold.show-complete .row-content {
+  background-image: none !important;
+  background-color: #1ec850 !important;
+  transition: background-color 100ms ease;
+}
+
+.row.past-threshold.show-complete .row-text {
+  text-decoration: line-through;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
 }
 
 .row-text {
