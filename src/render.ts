@@ -1,4 +1,5 @@
-import { addItem, BUCKET_ORDER, bucketItems, deleteItem, editItem, flattenedForRender, state, subscribe } from './state';
+import { attachRowGestures } from './gestures';
+import { addItem, BUCKET_ORDER, bucketItems, deleteItem, editItem, flattenedForRender, state, subscribe, toggleDone } from './state';
 import type { Bucket, Item } from './types';
 import { colorForPosition, rowBackgroundForPosition } from './ui/colors';
 
@@ -140,20 +141,42 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
   const row = document.createElement('div');
   row.className = 'row';
   row.dataset.id = item.id;
-  if (item.done) {
-    row.classList.add('row-done');
-  } else {
-    row.style.backgroundImage = rowBackgroundForPosition(index, total);
+  if (item.done) row.classList.add('row-done');
+
+  const completeAction = document.createElement('div');
+  completeAction.className = 'row-action row-action-complete';
+  completeAction.textContent = '✓';
+  row.appendChild(completeAction);
+
+  const deleteAction = document.createElement('div');
+  deleteAction.className = 'row-action row-action-delete';
+  deleteAction.textContent = '✕';
+  row.appendChild(deleteAction);
+
+  const content = document.createElement('div');
+  content.className = 'row-content';
+  if (!item.done) {
+    content.style.backgroundImage = rowBackgroundForPosition(index, total);
   }
 
   if (editingId === item.id) {
-    row.appendChild(renderInput(item));
+    content.appendChild(renderInput(item));
   } else {
     const text = document.createElement('span');
     text.className = 'row-text';
     text.textContent = item.text;
-    row.appendChild(text);
+    content.appendChild(text);
   }
+  row.appendChild(content);
+
+  if (editingId !== item.id) {
+    attachRowGestures(row, {
+      onTap: () => startEdit(item.id),
+      onCompleteCommit: () => toggleDone(item.id),
+      onDeleteCommit: () => deleteItem(item.id),
+    });
+  }
+
   return row;
 }
 
@@ -190,13 +213,6 @@ function renderInput(item: Item): HTMLInputElement {
 function onListClick(e: MouseEvent): void {
   const target = e.target as HTMLElement | null;
   if (!target) return;
-
-  const row = target.closest<HTMLElement>('.row');
-  if (row) {
-    const id = row.dataset.id;
-    if (id && editingId !== id) startEdit(id);
-    return;
-  }
 
   const hint = target.closest<HTMLElement>('.empty-hint');
   if (hint) {

@@ -43,7 +43,7 @@ Commit: "Phase 1: render initial state."
 
 Commit: "Phase 2: tap to edit."
 
-## Phase 3: Swipe gestures
+## Phase 3: Swipe gestures ✅
 
 - Implement `gestures.ts` swipe handler.
 - Right swipe past threshold toggles done. Left swipe past threshold deletes.
