@@ -1,11 +1,17 @@
 import { addItem, BUCKET_ORDER, bucketItems, deleteItem, editItem, flattenedForRender, state, subscribe } from './state';
 import type { Bucket, Item } from './types';
-import { rowBackgroundForPosition } from './ui/colors';
+import { colorForPosition, rowBackgroundForPosition } from './ui/colors';
 
 const EMPTY_HINTS: Record<Bucket, string> = {
   today: 'Tap to add',
   soon: 'Tap to add',
   later: 'Tap to add',
+};
+
+const BUCKET_LABELS: Record<Bucket, string> = {
+  today: 'Today',
+  soon: 'Soon',
+  later: 'Later',
 };
 
 let listEl: HTMLElement | null = null;
@@ -23,11 +29,6 @@ function buildShell(mount: HTMLElement): void {
 
   const app = document.createElement('div');
   app.className = 'app';
-
-  const statusDot = document.createElement('div');
-  statusDot.className = 'status-dot status-dot-idle';
-  statusDot.setAttribute('aria-label', 'Sync status');
-  app.appendChild(statusDot);
 
   const list = document.createElement('div');
   list.className = 'list';
@@ -61,19 +62,23 @@ function render(): void {
   if (!listEl) return;
 
   const flat = flattenedForRender();
-  const total = flat.length;
-  const indexById = new Map<string, number>();
-  flat.forEach((item, i) => indexById.set(item.id, i));
+  const total = flat.length + BUCKET_ORDER.length;
+
+  const headerPos: Record<Bucket, number> = { today: 0, soon: 0, later: 0 };
+  const itemPos = new Map<string, number>();
+  let cursor = 0;
+  for (const bucket of BUCKET_ORDER) {
+    headerPos[bucket] = cursor;
+    cursor++;
+    for (const item of bucketItems(bucket)) {
+      itemPos.set(item.id, cursor);
+      cursor++;
+    }
+  }
 
   const next = document.createDocumentFragment();
-  for (let b = 0; b < BUCKET_ORDER.length; b++) {
-    const bucket = BUCKET_ORDER[b]!;
-    next.appendChild(renderBucket(bucket, indexById, total));
-    if (b < BUCKET_ORDER.length - 1) {
-      const divider = document.createElement('div');
-      divider.className = 'divider';
-      next.appendChild(divider);
-    }
+  for (const bucket of BUCKET_ORDER) {
+    next.appendChild(renderBucket(bucket, headerPos[bucket], itemPos, total));
   }
   listEl.replaceChildren(next);
 
@@ -90,12 +95,15 @@ function render(): void {
 
 function renderBucket(
   bucket: Bucket,
-  indexById: Map<string, number>,
+  headerPosition: number,
+  itemPos: Map<string, number>,
   total: number,
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'bucket';
   section.dataset.bucket = bucket;
+
+  section.appendChild(renderBucketHeader(bucket, headerPosition, total));
 
   const items = bucketItems(bucket);
   if (items.length === 0) {
@@ -108,10 +116,24 @@ function renderBucket(
   }
 
   for (const item of items) {
-    const idx = indexById.get(item.id) ?? 0;
+    const idx = itemPos.get(item.id) ?? 0;
     section.appendChild(renderRow(item, idx, total));
   }
   return section;
+}
+
+function renderBucketHeader(bucket: Bucket, position: number, total: number): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'bucket-header';
+  header.dataset.bucket = bucket;
+  header.style.backgroundColor = colorForPosition(position, total);
+
+  const title = document.createElement('span');
+  title.className = 'bucket-header-title';
+  title.textContent = BUCKET_LABELS[bucket];
+  header.appendChild(title);
+
+  return header;
 }
 
 function renderRow(item: Item, index: number, total: number): HTMLElement {
@@ -176,9 +198,10 @@ function onListClick(e: MouseEvent): void {
     return;
   }
 
-  const emptyBucket = target.closest<HTMLElement>('.bucket-empty');
-  if (emptyBucket) {
-    const bucket = emptyBucket.dataset.bucket as Bucket | undefined;
+  const hint = target.closest<HTMLElement>('.empty-hint');
+  if (hint) {
+    const bucketEl = hint.closest<HTMLElement>('.bucket');
+    const bucket = bucketEl?.dataset.bucket as Bucket | undefined;
     if (bucket) {
       const item = addItem('', bucket);
       editingId = item.id;

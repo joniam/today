@@ -20,9 +20,9 @@ Not a general purpose todo system. Not a competitor to Things, Todoist, OmniFocu
 
 Single scrolling column. Full width on mobile, max-width container centered on desktop (around 500px feels right, refine in build).
 
-Top: thin status bar showing sync state (subtle, not loud). Just a small dot: green = synced, yellow = pending, red = error. Tappable to see details.
+Top: the Today section header sits flush at the top (under the safe-area inset). No separate status bar in the chrome; sync status surfaces in the settings sheet only (see Phase 10 of the build plan).
 
-Body: the list. Three buckets, separated by thin horizontal dividers.
+Body: the list. Three buckets, each preceded by a sticky header (TODAY, SOON, LATER).
 
 Bottom-right: floating circular button for settings. Subtle, doesn't dominate.
 
@@ -34,6 +34,8 @@ Each row has a background color drawn from a red-to-yellow gradient based on its
 - Last position (bottom of Later): yellow
 
 The gradient runs continuously across all buckets in v1. Build this as a single function `colorForPosition(index, totalCount)` so changing the scheme later (e.g. reset per bucket, or only Today gets warm colors) is one function swap.
+
+Bucket headers also participate in the gradient. The total count includes the three bucket headers plus all visible rows; each header occupies one position in the linear sequence right before its bucket's rows. This keeps the visible top-to-bottom progression monotonic: header / rows / header / rows / header / rows, all warming together.
 
 Color values:
 - Top: `hsl(0, 75%, 50%)` (red)
@@ -58,13 +60,22 @@ System font stack (no web fonts to load, fast).
 ```
 
 Row text: 17px on mobile, 16px on desktop. Comfortable line height (1.4).
-Bucket dividers: 1px line in muted color with no label visible. The line spans full width with small horizontal padding.
 
-### Bucket dividers
+### Bucket headers
 
-Just a thin line (1px, subtle gray with low opacity). No text labels visible. The user knows what's where by position. The dividers also act as drop targets and tap targets for adding to that bucket.
+Each bucket is preceded by a sticky header. The header is a slim row showing the bucket name (TODAY, SOON, LATER) centered, uppercase, lightly tracked-out, bold. The header's background uses `colorForPosition` for its position in the gradient (see "The heat map"), so it reads as a labeled colored band that fits the warm sequence.
 
-Hidden semantic note: when buckets are empty, the divider is still present (and slightly taller, ~40px hit area) so you can tap to add an item to that bucket.
+Headers use a flat fill (no per-row mini-gradient) so they read as labels rather than rows. A 2px inset bottom shadow gives a clear "header ends here" edge before the first row.
+
+`position: sticky` so when scrolling past one bucket into the next, the relevant header pins to the top of the viewport. This is how the user always knows which bucket they're looking at without explicit visual chrome.
+
+An empty bucket still renders its header (so the section remains identifiable), followed by a "Tap to add" hint row on the dark page background. The hint is the only tap-to-add target; the header itself is not interactive.
+
+### Sync status indicator
+
+No always-visible chrome for sync status in v1. The sync status surfaces in the settings sheet (see Phase 10 of the build plan): last sync time, last commit SHA, pending change count, force-sync button. Users assume sync is working unless something fails; the settings sheet is where you check.
+
+Earlier drafts placed a small colored dot at the top of the screen. Removed: it was visual noise that drew attention to a passive system most of the time.
 
 ## Interactions
 
@@ -136,19 +147,9 @@ Keep them snappy. 150-200ms for most transitions. Use CSS transforms (translateX
 
 ## Empty states
 
-Empty Today bucket on first launch: show a single placeholder row "Pull down to add your first item" in a muted style. Disappears once any item exists.
+Empty bucket: the bucket's sticky header still renders (so the section is identifiable), followed by a single muted italic "Tap to add" hint row. Tapping the hint inserts a new editable row in that bucket.
 
-Empty Soon or Later buckets: just the divider, slightly thicker, with hint text "Tap to add" in muted color when nothing is in the bucket. Hint disappears when items exist.
-
-## Sync status indicator
-
-Top-center, a single small dot (8px). Colors:
-- Green: synced within last few seconds.
-- Faint green: synced, idle.
-- Yellow: pending changes, syncing.
-- Red: sync error.
-
-Tap to open a small popover with details. Long-press to force sync.
+(Earlier drafts had a special "Pull down to add your first item" hint for an empty Today. Restoring that copy is a follow-up once Phase 5 pull-to-add lands.)
 
 ## What we are not building in v1
 
@@ -161,7 +162,8 @@ Tap to open a small popover with details. Long-press to force sync.
 - Subtasks.
 - Attachments.
 - Custom bucket names (yet).
-- Themes beyond light/dark.
+- A light theme (v1 is dark only; cream page bg fought with the bold heat-map rows).
+- Themes beyond the v1 dark palette.
 - Sound effects.
 
 ## Markdown file format

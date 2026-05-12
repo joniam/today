@@ -127,7 +127,7 @@ Commit: "Phase 9: sync engine."
 
 - Implement `ui/settings.ts`.
 - Bottom sheet: tap floating button to open, tap outside or swipe down to close.
-- Sections: sync status, theme (light/dark/auto), font size, build info, auth, data.
+- Sections: sync status, font size, build info, auth, data. (Theme switcher dropped for v1; we ship a single dark theme. See deferred decisions.)
 - Wire up "Force sync now", "Open data file in GitHub", "Export markdown".
 
 **Testable state:** Settings sheet works.
@@ -169,6 +169,7 @@ Commit: "Phase 13: status popover."
 Tracked here so they don't get lost between phases.
 
 - **Completed items sort to the bottom.** Decided during the Phase 1 visual pass. Looked noisier when done items were interleaved with active ones. Should land alongside Phase 4 (reorder logic) or as its own micro-phase before it.
+- **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
 
 ## Verification points where Jonathan should check in
 
