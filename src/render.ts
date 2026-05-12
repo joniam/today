@@ -1,6 +1,6 @@
 import { BUCKET_ORDER, bucketItems, flattenedForRender, subscribe } from './state';
 import type { Bucket, Item } from './types';
-import { colorForPosition, mutedColorForPosition } from './ui/colors';
+import { rowBackgroundForPosition } from './ui/colors';
 
 const EMPTY_HINTS: Record<Bucket, string> = {
   today: 'Pull down to add your first item',
@@ -105,11 +105,12 @@ function renderBucket(
 function renderRow(item: Item, index: number, total: number): HTMLElement {
   const row = document.createElement('div');
   row.className = 'row';
-  if (item.done) row.classList.add('row-done');
   row.dataset.id = item.id;
-  row.style.backgroundColor = item.done
-    ? mutedColorForPosition(index, total)
-    : colorForPosition(index, total);
+  if (item.done) {
+    row.classList.add('row-done');
+  } else {
+    row.style.backgroundImage = rowBackgroundForPosition(index, total);
+  }
 
   const text = document.createElement('span');
   text.className = 'row-text';

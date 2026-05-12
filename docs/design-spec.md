@@ -35,12 +35,20 @@ Each row has a background color drawn from a red-to-yellow gradient based on its
 
 The gradient runs continuously across all buckets in v1. Build this as a single function `colorForPosition(index, totalCount)` so changing the scheme later (e.g. reset per bucket, or only Today gets warm colors) is one function swap.
 
-Color values, approximate (refine during build):
+Color values:
 - Top: `hsl(0, 75%, 50%)` (red)
 - Bottom: `hsl(50, 85%, 55%)` (yellow-gold)
 - Interpolate in HSL for smooth perceptual transition.
 
-Completed items: same background but reduced saturation and lightness (e.g. multiply both by 0.6), and text gets a strikethrough plus reduced opacity.
+Each row also has its own vertical mini-gradient (±5% lightness around the row's base color), a 1px inset top highlight (`rgba(255,255,255,0.09)`), and a 1px inset bottom shadow (`rgba(0,0,0,0.09)`). Together these create a slightly raised "tile" look in the style of the Clear app.
+
+Row text: white, font-weight 700, slight negative letter-spacing, very subtle dark drop shadow (`0 1px 0 rgba(0,0,0,0.1)`) to keep readability on the lighter yellow rows.
+
+### Completed items
+
+Solid near-black background (`#0c0c0c`), opaque mid-grey text and strikethrough (`#6e6e6e`), 2px stroke with `text-decoration-skip-ink: none` so the line draws unbroken. Opaque grey (not low-alpha white) so the line and glyph layers don't compound where they overlap.
+
+Completed items keep their position in the heat-map sequence for v1. Sorting them to the bottom is a deferred decision (see build plan).
 
 ### Typography
 

@@ -2,7 +2,7 @@
 
 Phased plan for Claude Code to execute. Each phase ends at a testable, committable state. Run each phase, verify, then proceed.
 
-## Phase 0: Project setup
+## Phase 0: Project setup ✅
 
 - Initialize Vite + TypeScript project in repo root.
 - Install dependencies: `idb`, `ulid`. No others in v1.
@@ -18,7 +18,7 @@ Phased plan for Claude Code to execute. Each phase ends at a testable, committab
 
 **Testable state:** `npm run dev` starts dev server with blank page. `npm run build` produces `dist/`.
 
-## Phase 1: Rendering and state, no persistence
+## Phase 1: Rendering and state, no persistence ✅
 
 - Implement `types.ts` with the data model.
 - Implement `state.ts` with in-memory state, plus mutation functions: addItem, editItem, toggleDone, moveItem, reorderItem, deleteItem.
@@ -163,6 +163,12 @@ Commit: "Phase 12: animation polish."
 - Long-press status dot forces a sync.
 
 Commit: "Phase 13: status popover."
+
+## Deferred decisions
+
+Tracked here so they don't get lost between phases.
+
+- **Completed items sort to the bottom.** Decided during the Phase 1 visual pass. Looked noisier when done items were interleaved with active ones. Should land alongside Phase 4 (reorder logic) or as its own micro-phase before it.
 
 ## Verification points where Jonathan should check in
 

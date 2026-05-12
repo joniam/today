@@ -4,11 +4,18 @@
 
   --bg-page: #fff8f3;
   --fg-page: #1c0e08;
-  --row-fg: rgba(0, 0, 0, 0.88);
   --divider-color: rgba(0, 0, 0, 0.12);
   --hint-color: rgba(0, 0, 0, 0.45);
+  --row-fg: #ffffff;
+  --row-top-highlight: rgba(255, 255, 255, 0.09);
+  --row-bottom-shadow: rgba(0, 0, 0, 0.09);
+  --row-text-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+  --done-bg: #0c0c0c;
+  --done-fg: #6e6e6e;
+  --done-top-highlight: rgba(255, 255, 255, 0.03);
+  --done-bottom-shadow: rgba(0, 0, 0, 0.3);
   --status-dot-idle: #6fae6f;
-  --settings-bg: rgba(0, 0, 0, 0.35);
+  --settings-bg: rgba(0, 0, 0, 0.45);
   --settings-fg: rgba(255, 255, 255, 0.92);
 
   --max-width: 500px;
@@ -100,19 +107,36 @@ body {
 .row {
   padding: var(--row-padding-y) var(--row-padding-x);
   font-size: var(--row-text-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: var(--row-line-height);
   color: var(--row-fg);
+  text-shadow: var(--row-text-shadow);
   display: flex;
   align-items: center;
   user-select: none;
   -webkit-user-select: none;
   touch-action: pan-y;
-  transition: background-color 300ms ease;
+  box-shadow:
+    inset 0 1px 0 var(--row-top-highlight),
+    inset 0 -1px 0 var(--row-bottom-shadow);
+  transition: background-image 300ms ease, background-color 300ms ease;
+}
+
+.row-done {
+  background: var(--done-bg);
+  color: var(--done-fg);
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 var(--done-top-highlight),
+    inset 0 -1px 0 var(--done-bottom-shadow);
 }
 
 .row-done .row-text {
   text-decoration: line-through;
-  opacity: 0.55;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
 }
 
 .row-text {
@@ -130,7 +154,7 @@ body {
 .divider {
   height: var(--divider-thickness);
   background: var(--divider-color);
-  margin: 4px var(--row-padding-x);
+  margin: 8px var(--row-padding-x);
 }
 
 .settings-button {
