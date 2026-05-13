@@ -145,7 +145,7 @@ body {
   position: absolute;
   inset: 0;
   align-items: center;
-  padding: 0 22px;
+  padding: 0 18px;
   z-index: 0;
 }
 
@@ -170,22 +170,36 @@ body {
 }
 
 .row-action svg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: block;
   flex-shrink: 0;
+}
+
+.row.dragging {
+  position: relative;
+  z-index: 50;
+}
+
+.row.dragging .row-content {
+  box-shadow:
+    inset 0 1px 0 var(--row-top-highlight),
+    inset 0 -1px 0 var(--row-bottom-shadow),
+    0 14px 30px rgba(0, 0, 0, 0.55);
 }
 
 .row.past-threshold.show-complete .row-content {
   background-image: none !important;
   background-color: #1ec850 !important;
+  box-shadow: none !important;
+  text-shadow: none;
   transition: background-color 100ms ease;
 }
 
 .row.past-threshold.show-complete .row-text {
   text-decoration: line-through;
   text-decoration-color: currentColor;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 3px;
   text-decoration-skip-ink: none;
 }
 

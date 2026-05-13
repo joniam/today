@@ -43,7 +43,7 @@ Commit: "Phase 1: render initial state."
 
 Commit: "Phase 2: tap to edit."
 
-## Phase 3: Swipe gestures 🚧
+## Phase 3: Swipe gestures ✅
 
 - Implement `gestures.ts` swipe handler.
 - Right swipe past threshold toggles done. Left swipe past threshold deletes.
@@ -55,7 +55,7 @@ Commit: "Phase 2: tap to edit."
 
 Commit: "Phase 3: swipe gestures."
 
-## Phase 4: Long-press, drag, reorder, bucket move
+## Phase 4: Long-press, drag, reorder, bucket move 🚧
 
 - Long-press timer (400ms) on row.
 - Drag mode: lift visual, follow pointer, reflow others.
@@ -170,6 +170,7 @@ Tracked here so they don't get lost between phases.
 
 - **Completed items sort to the bottom.** Decided during the Phase 1 visual pass. Looked noisier when done items were interleaved with active ones. Should land alongside Phase 4 (reorder logic) or as its own micro-phase before it.
 - **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
+- **Heat-map color transitions on drop.** Phase 4 wires drag/reorder; the source row snaps into place but per-row heat-map color changes are instant (background-image swap on full re-render). Phase 12 already lists this as polish; pushing the smooth color animation to that phase rather than restructuring rendering now.
 
 ## Verification points where Jonathan should check in
 

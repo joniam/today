@@ -1,5 +1,16 @@
 import { attachRowGestures } from './gestures';
-import { addItem, BUCKET_ORDER, bucketItems, deleteItem, editItem, flattenedForRender, state, subscribe, toggleDone } from './state';
+import {
+  addItem,
+  BUCKET_ORDER,
+  bucketItems,
+  deleteItem,
+  editItem,
+  flattenedForRender,
+  moveItem,
+  state,
+  subscribe,
+  toggleDone,
+} from './state';
 import type { Bucket, Item } from './types';
 import { colorForPosition, rowBackgroundForPosition } from './ui/colors';
 
@@ -15,9 +26,14 @@ const BUCKET_LABELS: Record<Bucket, string> = {
   later: 'Later',
 };
 
+const DRAG_LIFT_MS = 150;
+const DRAG_REFLOW_MS = 150;
+const DRAG_SNAP_MS = 150;
+
 let listEl: HTMLElement | null = null;
 let rafId: number | null = null;
 let editingId: string | null = null;
+let dragActive = false;
 
 export function init(mount: HTMLElement): void {
   buildShell(mount);
@@ -52,6 +68,7 @@ function buildShell(mount: HTMLElement): void {
 }
 
 function scheduleRender(): void {
+  if (dragActive) return;
   if (rafId !== null) return;
   rafId = requestAnimationFrame(() => {
     rafId = null;
@@ -176,6 +193,7 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
       onTap: () => startEdit(item.id),
       onCompleteCommit: () => toggleDone(item.id),
       onDeleteCommit: () => deleteItem(item.id),
+      onLongPress: (pointerId, _clientX, clientY) => startDrag(row, item.id, pointerId, clientY),
     });
   }
 
@@ -253,6 +271,241 @@ function cancelEdit(id: string): void {
   }
   editingId = null;
   scheduleRender();
+}
+
+interface DragSlot {
+  bucket: Bucket;
+  indexInBucket: number;
+  flatIdx: number;
+  midY: number;
+}
+
+function startDrag(row: HTMLElement, itemId: string, pointerId: number, startClientY: number): void {
+  if (!listEl) return;
+  const item = state.items.find((i) => i.id === itemId);
+  if (!item) return;
+
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  dragActive = true;
+
+  try {
+    row.setPointerCapture(pointerId);
+  } catch {
+    /* capture refused; continue */
+  }
+
+  const allRows = Array.from(listEl.querySelectorAll<HTMLElement>('.row'));
+  const sourceFlatIdx = allRows.indexOf(row);
+  if (sourceFlatIdx < 0) {
+    dragActive = false;
+    scheduleRender();
+    return;
+  }
+
+  const sourceRect = row.getBoundingClientRect();
+  const sourceHeight = sourceRect.height;
+  const sourceContent = row.querySelector<HTMLElement>('.row-content');
+  const sourceBucket = item.bucket;
+  const sourceItems = bucketItems(sourceBucket);
+  const sourceIdxInBucket = sourceItems.findIndex((i) => i.id === itemId);
+
+  const slots: DragSlot[] = [];
+  let flatCursor = 0;
+  for (const bucket of BUCKET_ORDER) {
+    const sectionEl = listEl.querySelector<HTMLElement>(`.bucket[data-bucket="${bucket}"]`);
+    if (!sectionEl) continue;
+    const rowEls = Array.from(sectionEl.querySelectorAll<HTMLElement>('.row'));
+    if (rowEls.length === 0) {
+      const hint = sectionEl.querySelector<HTMLElement>('.empty-hint');
+      if (hint) {
+        const hr = hint.getBoundingClientRect();
+        slots.push({ bucket, indexInBucket: 0, flatIdx: flatCursor, midY: hr.top + hr.height / 2 });
+      }
+      continue;
+    }
+    const firstRect = rowEls[0]!.getBoundingClientRect();
+    slots.push({ bucket, indexInBucket: 0, flatIdx: flatCursor, midY: firstRect.top });
+    for (let i = 1; i < rowEls.length; i++) {
+      const prev = rowEls[i - 1]!.getBoundingClientRect();
+      const cur = rowEls[i]!.getBoundingClientRect();
+      slots.push({
+        bucket,
+        indexInBucket: i,
+        flatIdx: flatCursor + i,
+        midY: (prev.bottom + cur.top) / 2,
+      });
+    }
+    const lastRect = rowEls[rowEls.length - 1]!.getBoundingClientRect();
+    slots.push({
+      bucket,
+      indexInBucket: rowEls.length,
+      flatIdx: flatCursor + rowEls.length,
+      midY: lastRect.bottom,
+    });
+    flatCursor += rowEls.length;
+  }
+
+  row.classList.add('dragging');
+  if (sourceContent) {
+    sourceContent.style.transition = `transform ${DRAG_LIFT_MS}ms ease, box-shadow ${DRAG_LIFT_MS}ms ease`;
+    sourceContent.style.transform = 'translateY(0) scale(1.03)';
+    sourceContent.style.willChange = 'transform';
+  }
+  for (const r of allRows) {
+    if (r === row) continue;
+    const c = r.querySelector<HTMLElement>('.row-content');
+    if (c) {
+      c.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
+      c.style.willChange = 'transform';
+    }
+  }
+  vibrate(15);
+
+  let liftDone = false;
+  const liftTimer = window.setTimeout(() => {
+    liftDone = true;
+    if (sourceContent) sourceContent.style.transition = 'box-shadow 150ms ease';
+  }, DRAG_LIFT_MS);
+
+  let lastTargetFlatIdx = sourceFlatIdx;
+  let currentDy = 0;
+
+  function findTargetSlot(clientY: number): DragSlot {
+    let best = slots[0]!;
+    let bestDist = Math.abs(best.midY - clientY);
+    for (let i = 1; i < slots.length; i++) {
+      const d = Math.abs(slots[i]!.midY - clientY);
+      if (d < bestDist) {
+        bestDist = d;
+        best = slots[i]!;
+      }
+    }
+    return best;
+  }
+
+  function applyReflow(targetFlatIdx: number): void {
+    if (targetFlatIdx === lastTargetFlatIdx) return;
+    lastTargetFlatIdx = targetFlatIdx;
+    for (let i = 0; i < allRows.length; i++) {
+      const r = allRows[i]!;
+      if (r === row) continue;
+      let dy = 0;
+      if (targetFlatIdx > sourceFlatIdx) {
+        if (i > sourceFlatIdx && i < targetFlatIdx) dy = -sourceHeight;
+      } else if (targetFlatIdx < sourceFlatIdx) {
+        if (i >= targetFlatIdx && i < sourceFlatIdx) dy = sourceHeight;
+      }
+      const c = r.querySelector<HTMLElement>('.row-content');
+      if (c) c.style.transform = dy === 0 ? '' : `translateY(${dy}px)`;
+    }
+  }
+
+  function onMove(e: PointerEvent): void {
+    if (e.pointerId !== pointerId) return;
+    e.preventDefault();
+    currentDy = e.clientY - startClientY;
+    if (sourceContent) {
+      const transition = liftDone ? '' : sourceContent.style.transition;
+      if (liftDone) sourceContent.style.transition = '';
+      sourceContent.style.transform = `translateY(${currentDy}px) scale(1.03)`;
+      if (!liftDone) sourceContent.style.transition = transition;
+    }
+    const target = findTargetSlot(e.clientY);
+    applyReflow(target.flatIdx);
+  }
+
+  function onUp(e: PointerEvent): void {
+    if (e.pointerId !== pointerId) return;
+    finishDrag(e.clientY);
+  }
+
+  function onCancel(e: PointerEvent): void {
+    if (e.pointerId !== pointerId) return;
+    finishDrag(startClientY);
+  }
+
+  function finishDrag(clientY: number): void {
+    row.removeEventListener('pointermove', onMove);
+    row.removeEventListener('pointerup', onUp);
+    row.removeEventListener('pointercancel', onCancel);
+    clearTimeout(liftTimer);
+    try {
+      row.releasePointerCapture(pointerId);
+    } catch {
+      /* already released */
+    }
+
+    const target = findTargetSlot(clientY);
+    applyReflow(target.flatIdx);
+
+    const finalDy = target.midY - sourceHeight / 2 - sourceRect.top;
+    if (sourceContent) {
+      sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease, box-shadow ${DRAG_SNAP_MS}ms ease`;
+      sourceContent.style.transform = `translateY(${finalDy}px) scale(1.0)`;
+    }
+
+    window.setTimeout(() => {
+      row.classList.remove('dragging');
+      if (sourceContent) {
+        sourceContent.style.transition = '';
+        sourceContent.style.transform = '';
+        sourceContent.style.willChange = '';
+      }
+      for (const r of allRows) {
+        if (r === row) continue;
+        const c = r.querySelector<HTMLElement>('.row-content');
+        if (c) {
+          c.style.transition = '';
+          c.style.transform = '';
+          c.style.willChange = '';
+        }
+      }
+      dragActive = false;
+      commitDrop(target);
+    }, DRAG_SNAP_MS);
+  }
+
+  function commitDrop(target: DragSlot): void {
+    const noOpSameBucket =
+      target.bucket === sourceBucket &&
+      (target.indexInBucket === sourceIdxInBucket || target.indexInBucket === sourceIdxInBucket + 1);
+    if (noOpSameBucket) {
+      scheduleRender();
+      return;
+    }
+
+    const remaining = bucketItems(target.bucket).filter((i) => i.id !== itemId);
+    let adjustedIdx = target.indexInBucket;
+    if (target.bucket === sourceBucket && target.indexInBucket > sourceIdxInBucket) {
+      adjustedIdx -= 1;
+    }
+    let newOrder: number;
+    if (remaining.length === 0) {
+      newOrder = 1;
+    } else if (adjustedIdx <= 0) {
+      newOrder = remaining[0]!.order - 1;
+    } else if (adjustedIdx >= remaining.length) {
+      newOrder = remaining[remaining.length - 1]!.order + 1;
+    } else {
+      newOrder = (remaining[adjustedIdx - 1]!.order + remaining[adjustedIdx]!.order) / 2;
+    }
+    moveItem(itemId, target.bucket, newOrder);
+  }
+
+  row.addEventListener('pointermove', onMove);
+  row.addEventListener('pointerup', onUp);
+  row.addEventListener('pointercancel', onCancel);
+}
+
+function vibrate(pattern: number | number[]): void {
+  try {
+    (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(pattern);
+  } catch {
+    /* unsupported */
+  }
 }
 
 function cssEscape(value: string): string {

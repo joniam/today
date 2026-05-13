@@ -1,17 +1,20 @@
-const SWIPE_THRESHOLD_PX = 90;
+const SWIPE_THRESHOLD_PX = 70;
 const SCROLL_DOMINANCE = 8;
 const TAP_MOVE_LIMIT = 8;
 const TAP_TIME_LIMIT = 400;
 const SNAP_DURATION_MS = 150;
 const COMMIT_DELETE_DURATION_MS = 200;
+const LONG_PRESS_MS = 400;
+const LONG_PRESS_MOVE_TOLERANCE = 8;
 
 export interface RowGestureCallbacks {
   onTap: () => void;
   onCompleteCommit: () => void;
   onDeleteCommit: () => void;
+  onLongPress: (pointerId: number, clientX: number, clientY: number) => void;
 }
 
-type Mode = 'idle' | 'tracking' | 'swipe' | 'scroll';
+type Mode = 'idle' | 'tracking' | 'swipe' | 'scroll' | 'long-press';
 
 interface VibrateNavigator {
   vibrate?: (pattern: number | number[]) => boolean;
@@ -36,6 +39,14 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   let currentDx = 0;
   let captured = false;
   let pastThreshold = false;
+  let longPressTimer: number | null = null;
+
+  function cancelLongPress(): void {
+    if (longPressTimer !== null) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
 
   function release(pointerId: number): void {
     if (!captured) return;
@@ -60,16 +71,29 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   }
 
   function applyVisualForDx(dx: number): void {
-    content!.style.transform = `translateX(${dx}px)`;
-    if (dx > 0) {
+    if (dx > SWIPE_THRESHOLD_PX) {
+      // Past complete threshold: lock content at threshold position.
+      content!.style.transform = `translateX(${SWIPE_THRESHOLD_PX}px)`;
       row.classList.add('show-complete');
       row.classList.remove('show-delete');
-      setPastThreshold(dx > SWIPE_THRESHOLD_PX);
-    } else if (dx < 0) {
+      setPastThreshold(true);
+    } else if (dx > 0) {
+      content!.style.transform = `translateX(${dx}px)`;
+      row.classList.add('show-complete');
+      row.classList.remove('show-delete');
+      setPastThreshold(false);
+    } else if (dx < -SWIPE_THRESHOLD_PX) {
+      content!.style.transform = `translateX(${-SWIPE_THRESHOLD_PX}px)`;
       row.classList.add('show-delete');
       row.classList.remove('show-complete');
-      setPastThreshold(dx < -SWIPE_THRESHOLD_PX);
+      setPastThreshold(true);
+    } else if (dx < 0) {
+      content!.style.transform = `translateX(${dx}px)`;
+      row.classList.add('show-delete');
+      row.classList.remove('show-complete');
+      setPastThreshold(false);
     } else {
+      content!.style.transform = 'translateX(0)';
       row.classList.remove('show-complete', 'show-delete');
       setPastThreshold(false);
     }
@@ -119,14 +143,27 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
     currentDx = 0;
     captured = false;
     content.style.transition = '';
+    const pointerId = e.pointerId;
+    const initialX = e.clientX;
+    const initialY = e.clientY;
+    cancelLongPress();
+    longPressTimer = window.setTimeout(() => {
+      longPressTimer = null;
+      if (mode !== 'tracking') return;
+      mode = 'long-press';
+      callbacks.onLongPress(pointerId, initialX, initialY);
+    }, LONG_PRESS_MS);
   });
 
   row.addEventListener('pointermove', (e: PointerEvent) => {
-    if (mode === 'idle' || mode === 'scroll') return;
+    if (mode === 'idle' || mode === 'scroll' || mode === 'long-press') return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
 
     if (mode === 'tracking') {
+      if (Math.abs(dx) > LONG_PRESS_MOVE_TOLERANCE || Math.abs(dy) > LONG_PRESS_MOVE_TOLERANCE) {
+        cancelLongPress();
+      }
       if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > SCROLL_DOMINANCE) {
         mode = 'scroll';
         return;
@@ -152,7 +189,13 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   });
 
   row.addEventListener('pointerup', (e: PointerEvent) => {
+    cancelLongPress();
     const elapsed = e.timeStamp - startTime;
+
+    if (mode === 'long-press') {
+      // Drag controller owns the pointer release; nothing to do here.
+      return;
+    }
 
     if (mode === 'tracking' && elapsed < TAP_TIME_LIMIT) {
       mode = 'idle';
@@ -177,6 +220,10 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   });
 
   row.addEventListener('pointercancel', (e: PointerEvent) => {
+    cancelLongPress();
+    if (mode === 'long-press') {
+      return;
+    }
     if (mode === 'swipe') {
       snapBack(e.pointerId);
     } else {
