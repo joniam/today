@@ -35,6 +35,14 @@ let rafId: number | null = null;
 let editingId: string | null = null;
 let dragActive = false;
 
+window.addEventListener(
+  'touchmove',
+  (e: TouchEvent) => {
+    if (dragActive) e.preventDefault();
+  },
+  { passive: false },
+);
+
 export function init(mount: HTMLElement): void {
   buildShell(mount);
   subscribe(scheduleRender);
@@ -193,7 +201,7 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
       onTap: () => startEdit(item.id),
       onCompleteCommit: () => toggleDone(item.id),
       onDeleteCommit: () => deleteItem(item.id),
-      onLongPress: (pointerId, _clientX, clientY) => startDrag(row, item.id, pointerId, clientY),
+      onLongPress: (pointerId, clientX, clientY) => startDrag(row, item.id, pointerId, clientX, clientY),
     });
   }
 
@@ -280,7 +288,7 @@ interface DragSlot {
   midY: number;
 }
 
-function startDrag(row: HTMLElement, itemId: string, pointerId: number, startClientY: number): void {
+function startDrag(row: HTMLElement, itemId: string, pointerId: number, startClientX: number, startClientY: number): void {
   if (!listEl) return;
   const item = state.items.find((i) => i.id === itemId);
   if (!item) return;
@@ -348,30 +356,40 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     flatCursor += rowEls.length;
   }
 
+  const halfH = sourceHeight / 2;
+  const sourceCenterY = sourceRect.top + halfH;
+  for (const slot of slots) {
+    if (slot.midY < sourceCenterY) slot.midY += halfH;
+    else if (slot.midY > sourceCenterY) slot.midY -= halfH;
+  }
+
+  const dragTotal = allRows.length + BUCKET_ORDER.length;
+  let liftPos = 0;
+  for (const b of BUCKET_ORDER) {
+    liftPos++;
+    if (b === sourceBucket) { liftPos += sourceIdxInBucket; break; }
+    liftPos += bucketItems(b).length;
+  }
+  const liftColor = colorForPosition(liftPos, dragTotal);
+
   row.classList.add('dragging');
   if (sourceContent) {
-    sourceContent.style.transition = `transform ${DRAG_LIFT_MS}ms ease, box-shadow ${DRAG_LIFT_MS}ms ease`;
-    sourceContent.style.transform = 'translateY(0) scale(1.03)';
-    sourceContent.style.willChange = 'transform';
+    sourceContent.style.transition = `box-shadow ${DRAG_LIFT_MS}ms ease`;
+    sourceContent.style.backgroundImage = 'none';
+    sourceContent.style.backgroundColor = liftColor;
   }
+  row.style.transform = 'translateY(0) scale(1.06)';
+  row.style.willChange = 'transform';
   for (const r of allRows) {
     if (r === row) continue;
-    const c = r.querySelector<HTMLElement>('.row-content');
-    if (c) {
-      c.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
-      c.style.willChange = 'transform';
-    }
+    r.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
+    r.style.willChange = 'transform';
   }
   vibrate(15);
 
-  let liftDone = false;
-  const liftTimer = window.setTimeout(() => {
-    liftDone = true;
-    if (sourceContent) sourceContent.style.transition = 'box-shadow 150ms ease';
-  }, DRAG_LIFT_MS);
-
   let lastTargetFlatIdx = sourceFlatIdx;
   let currentDy = 0;
+  let currentDx = 0;
 
   function findTargetSlot(clientY: number): DragSlot {
     let best = slots[0]!;
@@ -398,8 +416,7 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       } else if (targetFlatIdx < sourceFlatIdx) {
         if (i >= targetFlatIdx && i < sourceFlatIdx) dy = sourceHeight;
       }
-      const c = r.querySelector<HTMLElement>('.row-content');
-      if (c) c.style.transform = dy === 0 ? '' : `translateY(${dy}px)`;
+      r.style.transform = dy === 0 ? '' : `translateY(${dy}px)`;
     }
   }
 
@@ -407,12 +424,8 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     if (e.pointerId !== pointerId) return;
     e.preventDefault();
     currentDy = e.clientY - startClientY;
-    if (sourceContent) {
-      const transition = liftDone ? '' : sourceContent.style.transition;
-      if (liftDone) sourceContent.style.transition = '';
-      sourceContent.style.transform = `translateY(${currentDy}px) scale(1.03)`;
-      if (!liftDone) sourceContent.style.transition = transition;
-    }
+    currentDx = e.clientX - startClientX;
+    row.style.transform = `translate(${currentDx}px, ${currentDy}px) scale(1.06)`;
     const target = findTargetSlot(e.clientY);
     applyReflow(target.flatIdx);
   }
@@ -431,7 +444,6 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     row.removeEventListener('pointermove', onMove);
     row.removeEventListener('pointerup', onUp);
     row.removeEventListener('pointercancel', onCancel);
-    clearTimeout(liftTimer);
     try {
       row.releasePointerCapture(pointerId);
     } catch {
@@ -441,27 +453,28 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     const target = findTargetSlot(clientY);
     applyReflow(target.flatIdx);
 
-    const finalDy = target.midY - sourceHeight / 2 - sourceRect.top;
+    const finalDy = target.midY - sourceRect.top;
+    row.style.transition = `transform ${DRAG_SNAP_MS}ms ease`;
+    row.style.transform = `translateY(${finalDy}px) scale(1.0)`;
     if (sourceContent) {
-      sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease, box-shadow ${DRAG_SNAP_MS}ms ease`;
-      sourceContent.style.transform = `translateY(${finalDy}px) scale(1.0)`;
+      sourceContent.style.transition = `box-shadow ${DRAG_SNAP_MS}ms ease`;
     }
 
     window.setTimeout(() => {
       row.classList.remove('dragging');
+      row.style.transition = '';
+      row.style.transform = '';
+      row.style.willChange = '';
       if (sourceContent) {
         sourceContent.style.transition = '';
-        sourceContent.style.transform = '';
-        sourceContent.style.willChange = '';
+        sourceContent.style.backgroundImage = '';
+        sourceContent.style.backgroundColor = '';
       }
       for (const r of allRows) {
         if (r === row) continue;
-        const c = r.querySelector<HTMLElement>('.row-content');
-        if (c) {
-          c.style.transition = '';
-          c.style.transform = '';
-          c.style.willChange = '';
-        }
+        r.style.transition = '';
+        r.style.transform = '';
+        r.style.willChange = '';
       }
       dragActive = false;
       commitDrop(target);

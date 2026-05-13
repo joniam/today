@@ -4,7 +4,7 @@ const TAP_MOVE_LIMIT = 8;
 const TAP_TIME_LIMIT = 400;
 const SNAP_DURATION_MS = 150;
 const COMMIT_DELETE_DURATION_MS = 200;
-const LONG_PRESS_MS = 400;
+const LONG_PRESS_MS = 300;
 const LONG_PRESS_MOVE_TOLERANCE = 8;
 
 export interface RowGestureCallbacks {
@@ -31,6 +31,8 @@ function vibrate(pattern: number | number[]): void {
 export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbacks): void {
   const content = row.querySelector<HTMLElement>('.row-content');
   if (!content) return;
+
+  row.addEventListener('contextmenu', (e) => e.preventDefault());
 
   let startX = 0;
   let startY = 0;

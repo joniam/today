@@ -103,6 +103,7 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   touch-action: pan-y;
 }
 
@@ -179,13 +180,13 @@ body {
 .row.dragging {
   position: relative;
   z-index: 50;
+  touch-action: none;
 }
 
 .row.dragging .row-content {
   box-shadow:
-    inset 0 1px 0 var(--row-top-highlight),
-    inset 0 -1px 0 var(--row-bottom-shadow),
-    0 14px 30px rgba(0, 0, 0, 0.55);
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .row.past-threshold.show-complete .row-content {
