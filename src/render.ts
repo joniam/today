@@ -606,59 +606,12 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       finalDy = originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
     }
 
-    const sourceContentRect = sourceContent ? sourceContent.getBoundingClientRect() : null;
-    const adjCond = !sameBucketNoOp && target.flatIdx === sourceFlatIdx + 1 && target.flatIdx < allRows.length;
-    const tgtPrevBottom = target.flatIdx > 0 ? Math.round(originalRowBottoms[target.flatIdx - 1]!) : null;
-    const tgtFirstBucket = target.flatIdx < allRows.length
-      ? allRows[target.flatIdx]!.closest<HTMLElement>('.bucket')?.dataset.bucket ?? 'n/a'
-      : 'oob';
-    const tgtHintTop = (() => {
-      const s = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${target.bucket}"]`);
-      const h = s?.querySelector<HTMLElement>('.empty-hint');
-      return h ? Math.round(h.getBoundingClientRect().top) : null;
-    })();
-    console.log(
-      '[drag:finish]',
-      'src:', sourceFlatIdx, sourceBucket, 'srcIdxInBucket:', sourceIdxInBucket,
-      '-> tgt:', target.flatIdx, target.bucket, 'tgtIdxInBucket:', target.indexInBucket,
-      'tgtFirstBucket:', tgtFirstBucket,
-      'noOp:', sameBucketNoOp,
-      'adjCond:', adjCond,
-      'finalDy:', Math.round(finalDy),
-      'srcRowTop:', Math.round(sourceRect.top),
-      'srcContentTop:', sourceContentRect ? Math.round(sourceContentRect.top) : 'n/a',
-      'snapLandsAt:', Math.round(sourceRect.top + finalDy),
-      'tgtPrevBottom:', tgtPrevBottom,
-      'tgtRowTop:', target.flatIdx < allRows.length ? Math.round(originalRowTops[target.flatIdx]!) : 'oob',
-      'tgtHintTop:', tgtHintTop,
-    );
-    if (adjCond && allRows[target.flatIdx]) {
-      const adjRow = allRows[target.flatIdx]!;
-      const adjBefore = adjRow.getBoundingClientRect();
-      console.log(
-        '[drag:adjShift]',
-        'adj flatIdx:', target.flatIdx,
-        'adjTop before:', Math.round(adjBefore.top),
-        'srcIdxInBucket:', sourceIdxInBucket,
-      );
-    }
     if (sourceContent) {
       sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease`;
       sourceContent.style.transform = `translateY(${finalDy}px) scale(1.0)`;
     }
-    let snapFrame = 0;
-    const logSnapFrame = () => {
-      if (!sourceContent) return;
-      const r = sourceContent.getBoundingClientRect();
-      console.log('[drag:snap] frame', snapFrame++, 'contentTop:', Math.round(r.top));
-      if (snapFrame < 10) requestAnimationFrame(logSnapFrame);
-    };
-    requestAnimationFrame(logSnapFrame);
 
     window.setTimeout(() => {
-      // Don't touch source row or other rows here -- replaceChildren in render()
-      // removes all old nodes (with their transforms) and inserts clean new ones.
-      // Clearing transforms manually before the RAF fires causes a 1-frame flash.
       dragActive = false;
       commitDrop(target);
     }, DRAG_SNAP_MS);

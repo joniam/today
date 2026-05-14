@@ -86,6 +86,7 @@ export function initPullToAdd(
 
   function onTouchMove(e: TouchEvent): void {
     if (!active) return;
+    if (isLocked()) { cancel(); return; }
     if (e.touches.length !== 1) { cancel(); return; }
     const touch = e.touches[0]!;
     const dx = Math.abs(touch.clientX - startX);
@@ -113,6 +114,7 @@ export function initPullToAdd(
 
   function onTouchEnd(): void {
     if (!active) return;
+    if (isLocked()) { cleanup(); return; }
     if (!committed) { cleanup(); return; }
     const dist = pullDist;
     cleanup();
