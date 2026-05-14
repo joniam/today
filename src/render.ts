@@ -32,9 +32,11 @@ const DRAG_REFLOW_MS = 150;
 const DRAG_SNAP_MS = 150;
 
 let listEl: HTMLElement | null = null;
+let pullContainerEl: HTMLElement | null = null;
 let rafId: number | null = null;
 let editingId: string | null = null;
 let dragActive = false;
+let pullActive = false;
 
 window.addEventListener(
   'touchmove',
@@ -65,7 +67,7 @@ function buildShell(mount: HTMLElement): void {
   pullContent.style.backgroundImage = rowBackgroundForPosition(0, 2);
   pullInner.appendChild(pullContent);
   pullContainer.appendChild(pullInner);
-  app.appendChild(pullContainer);
+  pullContainerEl = pullContainer;
 
   const list = document.createElement('div');
   list.className = 'list';
@@ -86,15 +88,20 @@ function buildShell(mount: HTMLElement): void {
 
   mount.appendChild(app);
 
-  initPullToAdd(pullContainer, () => dragActive || editingId !== null, () => {
-    const item = addItemFirst('', 'today');
-    editingId = item.id;
-    scheduleRender();
-  });
+  initPullToAdd(
+    pullContainer,
+    () => dragActive || editingId !== null,
+    () => {
+      const item = addItemFirst('', 'today');
+      editingId = item.id;
+      scheduleRender();
+    },
+    (active) => { pullActive = active; },
+  );
 }
 
 function scheduleRender(): void {
-  if (dragActive) return;
+  if (dragActive || pullActive) return;
   if (rafId !== null) return;
   rafId = requestAnimationFrame(() => {
     rafId = null;
@@ -126,6 +133,14 @@ function render(): void {
   }
   listEl.replaceChildren(next);
   listEl.style.backgroundImage = `linear-gradient(to bottom, ${colorForPosition(0, total)}, ${colorForPosition(total - 1, total)})`;
+
+  // Re-inject pull container inside Today section, right after the header.
+  // It's removed by replaceChildren each render and must live here so the
+  // pull animation reveals a row in exactly the position the item will land.
+  if (pullContainerEl) {
+    const todayHeader = listEl.querySelector<HTMLElement>('.bucket-header[data-bucket="today"]');
+    todayHeader?.insertAdjacentElement('afterend', pullContainerEl);
+  }
 
   if (editingId !== null) {
     const input = listEl.querySelector<HTMLInputElement>(

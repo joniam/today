@@ -36,6 +36,7 @@ export function initPullToAdd(
   container: HTMLElement,
   isLocked: () => boolean,
   onCommit: () => void,
+  setPullActive: (active: boolean) => void,
 ): void {
   const content = container.querySelector<HTMLElement>('.pull-row-content');
 
@@ -50,6 +51,7 @@ export function initPullToAdd(
     active = false;
     committed = false;
     pullDist = 0;
+    setPullActive(false);
   }
 
   function snapBack(then?: () => void): void {
@@ -91,6 +93,7 @@ export function initPullToAdd(
     if ((dx > 8 && dx > dy) || dy < -4) { cancel(); return; }
     if (dy > 0) {
       e.preventDefault();
+      if (!committed) setPullActive(true);
       committed = true;
       const prev = pullDist;
       pullDist = dy;
