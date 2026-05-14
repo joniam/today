@@ -656,34 +656,9 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     requestAnimationFrame(logSnapFrame);
 
     window.setTimeout(() => {
-      row.classList.remove('dragging');
-      // Hide row before clearing its transform to prevent a 1-frame snap-back flash.
-      // Re-render (next RAF after commitDrop) replaces the whole DOM anyway.
-      if (!sameBucketNoOp) row.style.display = 'none';
-      if (sourceContent) {
-        sourceContent.style.transition = '';
-        sourceContent.style.transform = '';
-        sourceContent.style.willChange = '';
-      }
-      for (const r of allRows) {
-        if (r === row) continue;
-        r.style.transition = '';
-        r.style.transform = '';
-        r.style.willChange = '';
-      }
-      for (const h of allHeaders) {
-        h.style.transition = '';
-        h.style.transform = '';
-        h.style.willChange = '';
-      }
-      // Reveal hint immediately if source bucket becomes empty, so the bucket keeps
-      // its height and shows the placeholder before re-render fires.
-      if (sourceItems.length === 1 && target.bucket !== sourceBucket) {
-        const hint = document.createElement('div');
-        hint.className = 'empty-hint';
-        hint.textContent = EMPTY_HINTS[sourceBucket];
-        row.parentElement?.appendChild(hint);
-      }
+      // Don't touch source row or other rows here -- replaceChildren in render()
+      // removes all old nodes (with their transforms) and inserts clean new ones.
+      // Clearing transforms manually before the RAF fires causes a 1-frame flash.
       dragActive = false;
       commitDrop(target);
     }, DRAG_SNAP_MS);
