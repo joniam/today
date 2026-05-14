@@ -64,6 +64,27 @@ body {
   padding-bottom: calc(72px + var(--safe-bottom));
 }
 
+.pull-row-container {
+  height: 0;
+  overflow: hidden;
+}
+
+.pull-row-content {
+  padding: var(--row-padding-y) var(--row-padding-x);
+  font-size: var(--row-text-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: var(--row-line-height);
+  color: var(--row-fg);
+  text-shadow: var(--row-text-shadow);
+  display: flex;
+  align-items: center;
+  box-shadow:
+    inset 0 1px 0 var(--row-top-highlight),
+    inset 0 -1px 0 var(--row-bottom-shadow);
+  opacity: 0;
+}
+
 .list {
   display: flex;
   flex-direction: column;

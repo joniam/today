@@ -1,6 +1,7 @@
-import { attachRowGestures } from './gestures';
+import { attachRowGestures, initPullToAdd } from './gestures';
 import {
   addItem,
+  addItemFirst,
   BUCKET_ORDER,
   bucketItems,
   deleteItem,
@@ -55,6 +56,17 @@ function buildShell(mount: HTMLElement): void {
   const app = document.createElement('div');
   app.className = 'app';
 
+  const pullContainer = document.createElement('div');
+  pullContainer.className = 'pull-row-container';
+  const pullInner = document.createElement('div');
+  pullInner.className = 'pull-row';
+  const pullContent = document.createElement('div');
+  pullContent.className = 'pull-row-content';
+  pullContent.style.backgroundImage = rowBackgroundForPosition(0, 2);
+  pullInner.appendChild(pullContent);
+  pullContainer.appendChild(pullInner);
+  app.appendChild(pullContainer);
+
   const list = document.createElement('div');
   list.className = 'list';
   list.addEventListener('click', onListClick);
@@ -73,6 +85,12 @@ function buildShell(mount: HTMLElement): void {
   app.appendChild(settings);
 
   mount.appendChild(app);
+
+  initPullToAdd(pullContainer, () => dragActive || editingId !== null, () => {
+    const item = addItemFirst('', 'today');
+    editingId = item.id;
+    scheduleRender();
+  });
 }
 
 function scheduleRender(): void {

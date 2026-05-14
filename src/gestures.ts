@@ -7,6 +7,10 @@ const COMMIT_DELETE_DURATION_MS = 200;
 const LONG_PRESS_MS = 300;
 const LONG_PRESS_MOVE_TOLERANCE = 8;
 
+const PULL_THRESHOLD_PX = 80;
+const PULL_MAX_PX = 52;
+const PULL_SNAP_MS = 150;
+
 export interface RowGestureCallbacks {
   onTap: () => void;
   onCompleteCommit: () => void;
@@ -26,6 +30,99 @@ function vibrate(pattern: number | number[]): void {
   } catch {
     /* unsupported */
   }
+}
+
+export function initPullToAdd(
+  container: HTMLElement,
+  isLocked: () => boolean,
+  onCommit: () => void,
+): void {
+  const content = container.querySelector<HTMLElement>('.pull-row-content');
+
+  let active = false;
+  let startX = 0;
+  let startY = 0;
+  let pullDist = 0;
+  let committed = false;
+
+  function cleanup(): void {
+    document.removeEventListener('touchmove', onTouchMove);
+    active = false;
+    committed = false;
+    pullDist = 0;
+  }
+
+  function snapBack(then?: () => void): void {
+    container.style.transition = `height ${PULL_SNAP_MS}ms ease`;
+    container.style.height = '0';
+    if (content) content.style.opacity = '';
+    container.classList.remove('pull-past-threshold');
+    window.setTimeout(() => {
+      container.style.transition = '';
+      if (then) then();
+    }, PULL_SNAP_MS);
+  }
+
+  function cancel(): void {
+    if (!active) return;
+    const wasCommitted = committed;
+    cleanup();
+    if (wasCommitted) snapBack();
+  }
+
+  function onTouchStart(e: TouchEvent): void {
+    if (isLocked()) return;
+    if (window.scrollY !== 0) return;
+    if (e.touches.length !== 1) return;
+    active = true;
+    committed = false;
+    pullDist = 0;
+    startX = e.touches[0]!.clientX;
+    startY = e.touches[0]!.clientY;
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+  }
+
+  function onTouchMove(e: TouchEvent): void {
+    if (!active) return;
+    if (e.touches.length !== 1) { cancel(); return; }
+    const touch = e.touches[0]!;
+    const dx = Math.abs(touch.clientX - startX);
+    const dy = touch.clientY - startY;
+    if ((dx > 8 && dx > dy) || dy < -4) { cancel(); return; }
+    if (dy > 0) {
+      e.preventDefault();
+      committed = true;
+      const prev = pullDist;
+      pullDist = dy;
+      container.style.height = `${Math.min(dy * 0.65, PULL_MAX_PX)}px`;
+      if (content) {
+        content.style.opacity = String(Math.min((dy / PULL_THRESHOLD_PX) * 1.2, 1));
+      }
+      if (prev < PULL_THRESHOLD_PX && pullDist >= PULL_THRESHOLD_PX) {
+        container.classList.add('pull-past-threshold');
+        vibrate(10);
+      } else if (prev >= PULL_THRESHOLD_PX && pullDist < PULL_THRESHOLD_PX) {
+        container.classList.remove('pull-past-threshold');
+        vibrate([3, 3, 3]);
+      }
+    }
+  }
+
+  function onTouchEnd(): void {
+    if (!active) return;
+    if (!committed) { cleanup(); return; }
+    const dist = pullDist;
+    cleanup();
+    if (dist >= PULL_THRESHOLD_PX) {
+      snapBack(() => onCommit());
+    } else {
+      snapBack();
+    }
+  }
+
+  document.addEventListener('touchstart', onTouchStart, { passive: true });
+  document.addEventListener('touchend', onTouchEnd, { passive: true });
+  document.addEventListener('touchcancel', cancel, { passive: true });
 }
 
 export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbacks): void {

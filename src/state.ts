@@ -49,6 +49,21 @@ export function addItem(text: string, bucket: Bucket = 'today'): Item {
   return item;
 }
 
+export function addItemFirst(text: string, bucket: Bucket = 'today'): Item {
+  const items = itemsIn(bucket);
+  const order = items.length === 0 ? 1 : items[0]!.order - 1;
+  const item: Item = {
+    id: ulid(),
+    text,
+    done: false,
+    bucket,
+    order,
+  };
+  state.items.push(item);
+  notify();
+  return item;
+}
+
 export function editItem(id: string, text: string): void {
   const item = state.items.find((i) => i.id === id);
   if (!item || item.text === text) return;
