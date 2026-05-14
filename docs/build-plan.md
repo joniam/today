@@ -55,7 +55,7 @@ Commit: "Phase 2: tap to edit."
 
 Commit: "Phase 3: swipe gestures."
 
-## Phase 4: Long-press, drag, reorder, bucket move 🚧
+## Phase 4: Long-press, drag, reorder, bucket move ✅
 
 - Long-press timer (400ms) on row.
 - Drag mode: lift visual, follow pointer, reflow others.
@@ -171,6 +171,7 @@ Tracked here so they don't get lost between phases.
 - **Completed items sort to the bottom.** Decided during the Phase 1 visual pass. Looked noisier when done items were interleaved with active ones. Should land alongside Phase 4 (reorder logic) or as its own micro-phase before it.
 - **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
 - **Heat-map color transitions on drop.** Phase 4 wires drag/reorder; the source row snaps into place but per-row heat-map color changes are instant (background-image swap on full re-render). Phase 12 already lists this as polish; pushing the smooth color animation to that phase rather than restructuring rendering now.
+- **Drag snap animation into/out of empty buckets is mediocre.** The snap math correctly lands tiles but the transition lacks visual polish (no reflow feedback when hovering over empty buckets; hint reveal on drop is abrupt). The right fix is making the render function drag-aware: render a "preview" state during drag (source bucket shows hint, target bucket shows source row ghost) so the snap animation is just a position correction rather than a layout change. This is a meaningful refactor of the drag/render split and belongs in Phase 12 polish.
 
 ## Verification points where Jonathan should check in
 
