@@ -66,7 +66,7 @@ Commit: "Phase 3: swipe gestures."
 
 Commit: "Phase 4: drag to reorder and move."
 
-## Phase 5: Pull-to-add ✅
+## Phase 5: Pull-to-add 🚧
 
 - Pull down from scroll top inserts new editable row at top of Today.
 - Visual: empty row reveals proportional to pull distance.

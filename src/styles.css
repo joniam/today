@@ -69,7 +69,12 @@ body {
   overflow: hidden;
 }
 
+.pull-row {
+  height: 100%;
+}
+
 .pull-row-content {
+  height: 100%;
   padding: var(--row-padding-y) var(--row-padding-x);
   font-size: var(--row-text-size);
   font-weight: 700;
