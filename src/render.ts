@@ -1,6 +1,7 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
 import {
   addItem,
+  addItemAfter,
   addItemFirst,
   allDoneItems,
   BUCKET_ORDER,
@@ -318,7 +319,20 @@ function renderInput(item: Item): HTMLInputElement {
     didInteract = true;
     if (e.key === 'Enter') {
       e.preventDefault();
-      input.blur();
+      const trimmed = input.value.trim();
+      if (!item.done && trimmed !== '') {
+        // Commit current item and open a blank row immediately below it.
+        cancelled = true;
+        editItem(item.id, trimmed);
+        const next = addItemAfter(item.id);
+        editingId = next.id;
+        // Render synchronously so focus() fires within the keydown handler —
+        // required on iOS to keep the keyboard up between items.
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+        render();
+      } else {
+        input.blur();
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       cancelled = true;

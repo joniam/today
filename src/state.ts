@@ -65,6 +65,25 @@ export function addItemFirst(text: string, bucket: Bucket = 'today'): Item {
   return item;
 }
 
+export function addItemAfter(id: string): Item {
+  const source = state.items.find((i) => i.id === id);
+  const bucket: Bucket = source?.bucket ?? 'today';
+  const active = itemsIn(bucket).filter((i) => !i.done);
+  const idx = active.findIndex((i) => i.id === id);
+  let order: number;
+  if (idx < 0 || active.length === 0) {
+    order = 1;
+  } else if (idx >= active.length - 1) {
+    order = active[active.length - 1]!.order + 1;
+  } else {
+    order = (active[idx]!.order + active[idx + 1]!.order) / 2;
+  }
+  const item: Item = { id: ulid(), text: '', done: false, bucket, order };
+  state.items.push(item);
+  notify();
+  return item;
+}
+
 export function editItem(id: string, text: string): void {
   const item = state.items.find((i) => i.id === id);
   if (!item || item.text === text) return;
