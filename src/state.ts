@@ -137,6 +137,20 @@ export function reorderItem(id: string, order: number): void {
   notify();
 }
 
+export function setAuth(
+  token: string,
+  dataRepo: { owner: string; repo: string; path: string },
+): void {
+  state.authToken = token;
+  state.dataRepo = dataRepo;
+  notify();
+}
+
+export function clearAuth(): void {
+  state.authToken = null;
+  notify();
+}
+
 export function deleteItem(id: string): void {
   const before = state.items.length;
   state.items = state.items.filter((i) => i.id !== id);

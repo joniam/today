@@ -1,4 +1,5 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
+import { initSettings } from './ui/settings';
 import {
   addItem,
   addItemAfter,
@@ -89,6 +90,7 @@ function buildShell(mount: HTMLElement): void {
     settings.appendChild(dot);
   }
   app.appendChild(settings);
+  initSettings(settings, app);
 
   mount.appendChild(app);
 
