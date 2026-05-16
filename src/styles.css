@@ -131,6 +131,16 @@ body {
   -webkit-user-select: none;
 }
 
+.bucket-header-build {
+  position: absolute;
+  right: var(--row-padding-x);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.45;
+}
+
 
 .row {
   position: relative;

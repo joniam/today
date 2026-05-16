@@ -236,6 +236,16 @@ function renderBucketHeader(bucket: Bucket, position: number, total: number): HT
   const title = document.createElement('span');
   title.className = 'bucket-header-title';
   title.textContent = BUCKET_LABELS[bucket];
+
+  if (bucket === 'today') {
+    const built = new Date(__BUILD_TIME__);
+    const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const build = document.createElement('span');
+    build.className = 'bucket-header-build';
+    build.textContent = `${__BUILD_SHA__} · ${dateStr} ${timeStr}`;
+    header.appendChild(build);
+  }
   header.appendChild(title);
 
   return header;
