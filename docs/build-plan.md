@@ -88,7 +88,7 @@ Commit: "Phase 5: pull to add."
 
 Commit: "Phase 6: IndexedDB persistence."
 
-## Phase 7: Markdown parser and serializer (in progress)
+## Phase 7: Markdown parser and serializer ✅
 
 - Implement `sync/parser.ts`.
 - `parseMarkdown(text: string): Item[]` and `serializeMarkdown(items: Item[]): string`.
@@ -99,7 +99,7 @@ Commit: "Phase 6: IndexedDB persistence."
 
 Commit: "Phase 7: markdown parser."
 
-## Phase 8: GitHub API + first run setup
+## Phase 8: GitHub API + first run setup (in progress)
 
 - Implement `sync/github.ts` with GET and PUT.
 - Implement first-run screen: if no PAT stored, show setup form (repo owner, repo, path, PAT). Validate with a GET. Store on success.
