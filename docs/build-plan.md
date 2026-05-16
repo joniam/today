@@ -88,7 +88,7 @@ Commit: "Phase 5: pull to add."
 
 Commit: "Phase 6: IndexedDB persistence."
 
-## Phase 7: Markdown parser and serializer
+## Phase 7: Markdown parser and serializer (in progress)
 
 - Implement `sync/parser.ts`.
 - `parseMarkdown(text: string): Item[]` and `serializeMarkdown(items: Item[]): string`.
@@ -180,3 +180,6 @@ Tracked here so they don't get lost between phases.
 - After Phase 4: do the gestures feel good on phone?
 - After Phase 9: is sync reliable end to end? Test edits from both sides.
 - After Phase 12: daily-use ready check.
+
+## Bug backlog
+- When removing the last item in Later and/or removing the last completed task, the black background at the bottom became a smooth orange/yellow gradient. Is should be black after the last item.
