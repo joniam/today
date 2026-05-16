@@ -2,12 +2,13 @@ import { attachRowGestures, initPullToAdd } from './gestures';
 import {
   addItem,
   addItemFirst,
+  allDoneItems,
   BUCKET_ORDER,
   bucketItems,
   deleteItem,
   editItem,
-  flattenedForRender,
   moveItem,
+  setDone,
   state,
   subscribe,
   toggleDone,
@@ -37,6 +38,8 @@ let rafId: number | null = null;
 let editingId: string | null = null;
 let dragActive = false;
 let pullActive = false;
+let lastDragEnd = 0;
+let lastFocusTime = 0;
 
 window.addEventListener(
   'touchmove',
@@ -90,13 +93,24 @@ function buildShell(mount: HTMLElement): void {
 
   initPullToAdd(
     pullContainer,
-    () => dragActive || editingId !== null,
+    () => dragActive || editingId !== null || (performance.now() - lastDragEnd < 300),
     () => {
+      console.log('[pull:onCommit] editingId before:', editingId?.slice(-4) ?? 'null');
       const item = addItemFirst('', 'today');
       editingId = item.id;
+      console.log('[pull:onCommit] new editingId:', editingId.slice(-4));
       scheduleRender();
     },
-    (active) => { pullActive = active; },
+    (active) => {
+      console.log('[pull:setPullActive]', active, 'editingId:', editingId?.slice(-4) ?? 'null');
+      pullActive = active;
+    },
+    () => {
+      const el = document.activeElement as HTMLElement | null;
+      console.log('[pull:tryUnlock] blurring:', el?.tagName, el?.className, 'editingId:', editingId?.slice(-4) ?? 'null');
+      el?.blur();
+      console.log('[pull:tryUnlock] after blur, editingId:', editingId?.slice(-4) ?? 'null');
+    },
   );
 }
 
@@ -112,34 +126,46 @@ function scheduleRender(): void {
 function render(): void {
   if (!listEl) return;
 
-  const flat = flattenedForRender();
-  const total = flat.length + BUCKET_ORDER.length;
-
+  // Position map covers only active items + bucket headers (done items use CSS color).
   const headerPos: Record<Bucket, number> = { today: 0, soon: 0, later: 0 };
   const itemPos = new Map<string, number>();
   let cursor = 0;
   for (const bucket of BUCKET_ORDER) {
-    headerPos[bucket] = cursor;
-    cursor++;
-    for (const item of bucketItems(bucket)) {
-      itemPos.set(item.id, cursor);
-      cursor++;
+    headerPos[bucket] = cursor++;
+    for (const item of bucketItems(bucket).filter((i) => !i.done)) {
+      itemPos.set(item.id, cursor++);
     }
   }
+  const total = cursor;
 
   const next = document.createDocumentFragment();
   for (const bucket of BUCKET_ORDER) {
     next.appendChild(renderBucket(bucket, headerPos[bucket], itemPos, total));
   }
+  const doneItems = allDoneItems();
+  if (doneItems.length > 0) {
+    next.appendChild(renderDoneSection(doneItems));
+  }
   listEl.replaceChildren(next);
   listEl.style.backgroundImage = `linear-gradient(to bottom, ${colorForPosition(0, total)}, ${colorForPosition(total - 1, total)})`;
 
   // Re-inject pull container inside Today section, right after the header.
-  // It's removed by replaceChildren each render and must live here so the
-  // pull animation reveals a row in exactly the position the item will land.
+  // The commit path fires onCommit immediately without waiting for snapBack,
+  // so the container may still have its pull height/opacity. Always reset to
+  // invisible (height 0) before re-injecting so the first item appears at y=35.
   if (pullContainerEl) {
     const todayHeader = listEl.querySelector<HTMLElement>('.bucket-header[data-bucket="today"]');
-    todayHeader?.insertAdjacentElement('afterend', pullContainerEl);
+    if (todayHeader) {
+      pullContainerEl.style.height = '0';
+      pullContainerEl.style.transition = '';
+      pullContainerEl.classList.remove('pull-past-threshold');
+      const pullContent = pullContainerEl.querySelector<HTMLElement>('.pull-row-content');
+      if (pullContent) {
+        pullContent.style.opacity = '';
+        pullContent.style.transition = '';
+      }
+      todayHeader.insertAdjacentElement('afterend', pullContainerEl);
+    }
   }
 
   if (editingId !== null) {
@@ -147,6 +173,8 @@ function render(): void {
       `.row[data-id="${cssEscape(editingId)}"] .row-input`,
     );
     if (input) {
+      console.log('[render:focus]', editingId.slice(-4));
+      lastFocusTime = performance.now();
       input.focus();
       input.select();
     }
@@ -165,7 +193,7 @@ function renderBucket(
 
   section.appendChild(renderBucketHeader(bucket, headerPosition, total));
 
-  const items = bucketItems(bucket);
+  const items = bucketItems(bucket).filter((i) => !i.done);
   if (items.length === 0) {
     section.classList.add('bucket-empty');
     const hint = document.createElement('div');
@@ -178,6 +206,16 @@ function renderBucket(
   for (const item of items) {
     const idx = itemPos.get(item.id) ?? 0;
     section.appendChild(renderRow(item, idx, total));
+  }
+  return section;
+}
+
+function renderDoneSection(items: Item[]): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'bucket done-section';
+  section.dataset.bucket = 'done';
+  for (const item of items) {
+    section.appendChild(renderRow(item, 0, 1));
   }
   return section;
 }
@@ -251,14 +289,16 @@ function renderInput(item: Item): HTMLInputElement {
   input.spellcheck = false;
 
   let cancelled = false;
+  let didInteract = false;
 
   const commit = () => {
     if (cancelled) return;
+    console.log('[input:blur]', item.id.slice(-4), 'value:', JSON.stringify(input.value));
     commitEdit(item.id, input.value);
   };
 
-  input.addEventListener('blur', commit);
   input.addEventListener('keydown', (e) => {
+    didInteract = true;
     if (e.key === 'Enter') {
       e.preventDefault();
       input.blur();
@@ -267,6 +307,20 @@ function renderInput(item: Item): HTMLInputElement {
       cancelled = true;
       cancelEdit(item.id);
     }
+  });
+
+  input.addEventListener('blur', () => {
+    const dt = performance.now() - lastFocusTime;
+    if (!didInteract && item.text === '' && input.value === '' && dt < 300) {
+      // iOS auto-blurs inputs focused outside a direct gesture handler.
+      // Suppress deletion: exit edit mode and keep the empty item so the user
+      // can tap once to retry (that tap is close enough to a gesture for iOS).
+      console.log('[input:auto-blur] suppressed, dt:', dt.toFixed(0), 'ms');
+      editingId = null;
+      scheduleRender();
+      return;
+    }
+    commit();
   });
 
   return input;
@@ -293,6 +347,7 @@ function startEdit(id: string): void {
 }
 
 function commitEdit(id: string, value: string): void {
+  console.log('[commitEdit]', id.slice(-4), 'trimmed:', JSON.stringify(value.trim()));
   const trimmed = value.trim();
   const item = state.items.find((i) => i.id === id);
   if (item) {
@@ -307,8 +362,23 @@ function commitEdit(id: string, value: string): void {
 }
 
 function cancelEdit(id: string): void {
+  console.log('[cancelEdit]', id.slice(-4));
   const item = state.items.find((i) => i.id === id);
   if (item && item.text === '') {
+    const rowEl = listEl?.querySelector<HTMLElement>(`.row[data-id="${cssEscape(id)}"]`);
+    if (rowEl) {
+      const h = rowEl.offsetHeight;
+      rowEl.style.height = `${h}px`;
+      void rowEl.offsetHeight;
+      rowEl.style.transition = 'height 200ms ease, opacity 200ms ease';
+      rowEl.style.height = '0';
+      rowEl.style.opacity = '0';
+      window.setTimeout(() => {
+        editingId = null;
+        deleteItem(id);
+      }, 200);
+      return;
+    }
     deleteItem(id);
   }
   editingId = null;
@@ -316,7 +386,7 @@ function cancelEdit(id: string): void {
 }
 
 interface DragSlot {
-  bucket: Bucket;
+  bucket: Bucket | 'done';
   indexInBucket: number;
   flatIdx: number;
   midY: number;
@@ -354,7 +424,9 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   const originalRowBottoms = allRows.map((r) => r.getBoundingClientRect().bottom);
   const sourceContent = row.querySelector<HTMLElement>('.row-content');
   const sourceBucket = item.bucket;
-  const srcBucketIdx = BUCKET_ORDER.indexOf(sourceBucket);
+  // Done items are visually in the done section (below all active buckets), so
+  // treat them as bucket index 3 for header-shift math in applyReflow.
+  const srcBucketIdx = item.done ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(sourceBucket);
   const sourceItems = bucketItems(sourceBucket);
   const sourceIdxInBucket = sourceItems.findIndex((i) => i.id === itemId);
 
@@ -394,6 +466,24 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     flatCursor += rowEls.length;
   }
 
+  // Build slots for the done section at the bottom.
+  const doneSectionEl = listEl.querySelector<HTMLElement>('.done-section');
+  if (doneSectionEl) {
+    const doneRowEls = Array.from(doneSectionEl.querySelectorAll<HTMLElement>('.row'));
+    if (doneRowEls.length > 0) {
+      const firstRect = doneRowEls[0]!.getBoundingClientRect();
+      slots.push({ bucket: 'done', indexInBucket: 0, flatIdx: flatCursor, midY: firstRect.top });
+      for (let i = 1; i < doneRowEls.length; i++) {
+        const prev = doneRowEls[i - 1]!.getBoundingClientRect();
+        const cur = doneRowEls[i]!.getBoundingClientRect();
+        slots.push({ bucket: 'done', indexInBucket: i, flatIdx: flatCursor + i, midY: (prev.bottom + cur.top) / 2 });
+      }
+      const lastRect = doneRowEls[doneRowEls.length - 1]!.getBoundingClientRect();
+      slots.push({ bucket: 'done', indexInBucket: doneRowEls.length, flatIdx: flatCursor + doneRowEls.length, midY: lastRect.bottom });
+      flatCursor += doneRowEls.length;
+    }
+  }
+
   const halfH = sourceHeight / 2;
   const sourceCenterY = sourceRect.top + halfH;
   for (const slot of slots) {
@@ -422,7 +512,7 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   vibrate(15);
 
   let lastTargetFlatIdx = sourceFlatIdx;
-  let lastTargetBucket: Bucket = sourceBucket;
+  let lastTargetBucket: Bucket | 'done' = item.done ? 'done' : sourceBucket;
   let currentDy = 0;
   let currentDx = 0;
 
@@ -444,9 +534,12 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     lastTargetFlatIdx = target.flatIdx;
     lastTargetBucket = target.bucket;
     const targetFlatIdx = target.flatIdx;
-    const tgtBucketIdx = BUCKET_ORDER.indexOf(target.bucket);
+    // Treat 'done' section as virtual bucket index 3 so header shifts work correctly.
+    const tgtBucketIdx = target.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(target.bucket as Bucket);
     // Empty target bucket: source just floats over the hint — nothing shifts.
-    const targetBucketEmpty = bucketItems(target.bucket).length === 0;
+    const targetBucketEmpty = target.bucket === 'done'
+      ? false
+      : bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
 
     for (let i = 0; i < allRows.length; i++) {
       const r = allRows[i]!;
@@ -606,18 +699,48 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       finalDy = originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
     }
 
+    const finishT = performance.now();
+    const snapTargetY = sourceRect.top + finalDy;
+    console.log('[drag:finish]',
+      `src=${sourceFlatIdx}(${sourceBucket}[${sourceIdxInBucket}])`,
+      `→ tgt=${target.flatIdx}(${target.bucket}[${target.indexInBucket}])`,
+      `finalDy=${finalDy.toFixed(0)} snapTargetY=${snapTargetY.toFixed(0)}`
+    );
+
     if (sourceContent) {
       sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease`;
       sourceContent.style.transform = `translateY(${finalDy}px) scale(1.0)`;
+      sourceContent.addEventListener('transitionend', () => {
+        const r = sourceContent.getBoundingClientRect();
+        console.log('[drag:transitionend]',
+          `dt=${(performance.now() - finishT).toFixed(0)}ms`,
+          `top=${r.top.toFixed(0)} h=${r.height.toFixed(0)}`
+        );
+      }, { once: true });
     }
 
     window.setTimeout(() => {
+      console.log('[drag:timeout]', `dt=${(performance.now() - finishT).toFixed(0)}ms`);
       dragActive = false;
+      lastDragEnd = performance.now();
       commitDrop(target);
     }, DRAG_SNAP_MS);
   }
 
   function commitDrop(target: DragSlot): void {
+    if (target.bucket === 'done') {
+      // Reorder within done section — keep item in its original bucket, just change order.
+      const remaining = allDoneItems().filter((i) => i.id !== itemId);
+      const idx = target.indexInBucket;
+      let newOrder: number;
+      if (remaining.length === 0) newOrder = 0;
+      else if (idx <= 0) newOrder = remaining[0]!.order - 1;
+      else if (idx >= remaining.length) newOrder = remaining[remaining.length - 1]!.order + 1;
+      else newOrder = (remaining[idx - 1]!.order + remaining[idx]!.order) / 2;
+      moveItem(itemId, sourceBucket, newOrder);
+      return;
+    }
+
     const noOpSameBucket =
       target.bucket === sourceBucket &&
       (target.indexInBucket === sourceIdxInBucket || target.indexInBucket === sourceIdxInBucket + 1);
@@ -626,7 +749,7 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       return;
     }
 
-    const remaining = bucketItems(target.bucket).filter((i) => i.id !== itemId);
+    const remaining = bucketItems(target.bucket as Bucket).filter((i) => i.id !== itemId);
     let adjustedIdx = target.indexInBucket;
     if (target.bucket === sourceBucket && target.indexInBucket > sourceIdxInBucket) {
       adjustedIdx -= 1;
@@ -641,7 +764,13 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     } else {
       newOrder = (remaining[adjustedIdx - 1]!.order + remaining[adjustedIdx]!.order) / 2;
     }
-    moveItem(itemId, target.bucket, newOrder);
+    moveItem(itemId, target.bucket as Bucket, newOrder);
+
+    // Done item dragged into the active zone becomes undone at the chosen position.
+    const activeCount = remaining.filter((i) => !i.done).length;
+    if (item?.done && adjustedIdx < activeCount) {
+      setDone(itemId, false);
+    }
   }
 
   row.addEventListener('pointermove', onMove);

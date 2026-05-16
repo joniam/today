@@ -66,7 +66,7 @@ Commit: "Phase 3: swipe gestures."
 
 Commit: "Phase 4: drag to reorder and move."
 
-## Phase 5: Pull-to-add 🚧
+## Phase 5: Pull-to-add ✅
 
 - Pull down from scroll top inserts new editable row at top of Today.
 - Visual: empty row reveals proportional to pull distance.
@@ -172,6 +172,7 @@ Tracked here so they don't get lost between phases.
 - **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
 - **Heat-map color transitions on drop.** Phase 4 wires drag/reorder; the source row snaps into place but per-row heat-map color changes are instant (background-image swap on full re-render). Phase 12 already lists this as polish; pushing the smooth color animation to that phase rather than restructuring rendering now.
 - **Drag snap animation into/out of empty buckets is mediocre.** The snap math correctly lands tiles but the transition lacks visual polish (no reflow feedback when hovering over empty buckets; hint reveal on drop is abrupt). The right fix is making the render function drag-aware: render a "preview" state during drag (source bucket shows hint, target bucket shows source row ghost) so the snap animation is just a position correction rather than a layout change. This is a meaningful refactor of the drag/render split and belongs in Phase 12 polish.
+- **Pull-to-add while actively editing a row is unreliable.** The `tryUnlock` path (blur the active input, then start the pull) works correctly in isolation, but a quick touch on the list that both arms the pull AND triggers a row tap causes the pull to end with `locked: true` before it can commit. Root cause: `pointerup` (which fires `onTap → startEdit`) runs before `touchend` (which runs pull cleanup), so editing state is set mid-gesture. Logged and deferred to Phase 12 polish.
 
 ## Verification points where Jonathan should check in
 

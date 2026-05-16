@@ -40,6 +40,58 @@ This is `today`, a single-list PWA todo app inspired by Clear, built for Jonatha
 - Don't add libraries to "solve" gesture handling unless explicitly approved. Vanilla pointer events are the plan.
 - If the spec is ambiguous, choose the simpler option and note the decision in the commit message.
 
+## Debugging gesture and animation bugs
+
+This app has a custom gesture/animation stack with no framework. Bugs here are consistently harder to diagnose than logic bugs because they live at the intersection of state, DOM timing, and CSS transitions. Follow this protocol.
+
+### Step 1: Classify the bug before touching code
+
+Every visible glitch is either a **state/render bug** or an **animation/timing bug**. They look identical to the user but require completely different fixes.
+
+- **State/render bug**: the wrong data is in `state.items`, or `render()` is running at the wrong time, or it is running with stale data.
+- **Animation/timing bug**: the state and final render are both correct, but the visual transition between them is wrong (wrong timing, wrong element, missing CSS reset).
+
+Before adding any instrumentation, decide which layer the bug is in. Write down the hypothesis. Add logging to confirm or falsify it, not to explore blindly.
+
+### Step 2: Use state logs to validate the layer classification
+
+Add logging at these checkpoints and read the output before hypothesizing a fix:
+
+- `[render:start]`: log `state.items` count and the id of every item in Today.
+- `[commitEdit]` / `[cancelEdit]`: log what was committed or cancelled and the resulting item count.
+- Any callback that mutates state (`onCommit`, `onCompleteCommit`, `onDeleteCommit`): log what fired and when.
+
+**If state logs show clean state at the moment the visual glitch occurs, the bug is in the animation layer, not the state layer. Stop investigating state.** This is the most common wrong turn: spending rounds on render cycles when the data is correct.
+
+### Step 3: For animation bugs, map the visual gap
+
+When state is clean, the bug is a timing or sequencing issue between DOM elements. Draw the sequence:
+
+1. What does the user see at gesture release (frame 0)?
+2. What does the user see one RAF later (~16ms)?
+3. What should they see at each step vs. what they actually see?
+
+The gap is almost always one of:
+- A preview element disappears before the real element appears (timing gap).
+- A CSS transition is not cleared before the element is reused (stale transition).
+- An element is reset by `replaceChildren` but a sibling module-level reference is not reset to match.
+
+### Step 4: The preview-to-real-item pattern
+
+This app has several places where a gesture preview (pull container, drag tile) must hand off seamlessly to a re-rendered DOM element. The invariant for all of these:
+
+**Commit the state change before or simultaneously with ending the preview animation. Never commit inside a setTimeout callback that fires after the preview collapses.**
+
+`snapBack(() => onCommit())` is the anti-pattern: it guarantees a visible gap equal to the animation duration. The correct pattern: call `onCommit()` immediately on gesture release, let `render()` handle cleanup of the preview element on its next pass.
+
+### Pull container invariant
+
+`pullContainerEl` is a persistent DOM node that survives `replaceChildren` via manual re-injection in `render()`. Because it lives outside the normal render cycle, `render()` must explicitly reset its height, opacity, and transitions every time it is re-injected. If the pull container ever appears to "linger" after a commit, the first place to check is whether `render()` is clearing those styles before re-inserting.
+
+### iOS focus/auto-blur
+
+Calling `input.focus()` from a RAF or setTimeout context (not directly from a user gesture handler) causes iOS Safari to auto-blur the input immediately. Guard against this by tracking `lastFocusTime` and suppressing the blur-commit path if blur fires within 300ms of focus with no user interaction (`didInteract` flag). See the `renderInput` function in `render.ts` for the current implementation.
+
 ## Things deliberately out of scope for v1
 
 See design spec section "What we are not building in v1". Don't add these even if they seem easy.

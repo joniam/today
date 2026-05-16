@@ -25,9 +25,10 @@ function notify(): void {
 }
 
 function itemsIn(bucket: Bucket): Item[] {
-  return state.items
+  const sorted = state.items
     .filter((i) => i.bucket === bucket)
     .sort((a, b) => a.order - b.order);
+  return [...sorted.filter((i) => !i.done), ...sorted.filter((i) => i.done)];
 }
 
 function nextOrder(bucket: Bucket): number {
@@ -74,7 +75,29 @@ export function editItem(id: string, text: string): void {
 export function toggleDone(id: string): void {
   const item = state.items.find((i) => i.id === id);
   if (!item) return;
-  item.done = !item.done;
+  const completing = !item.done;
+  item.done = completing;
+  if (completing) {
+    // Place at top of done section so most-recently-completed appears first.
+    const doneOrders = state.items
+      .filter((i) => i.bucket === item.bucket && i.done && i.id !== id)
+      .map((i) => i.order);
+    item.order = doneOrders.length === 0 ? 0 : Math.min(...doneOrders) - 1;
+  } else {
+    // Always return to today, at the bottom of active items.
+    item.bucket = 'today';
+    const activeOrders = state.items
+      .filter((i) => i.bucket === 'today' && !i.done && i.id !== id)
+      .map((i) => i.order);
+    item.order = activeOrders.length === 0 ? 1 : Math.max(...activeOrders) + 1;
+  }
+  notify();
+}
+
+export function setDone(id: string, done: boolean): void {
+  const item = state.items.find((i) => i.id === id);
+  if (!item || item.done === done) return;
+  item.done = done;
   notify();
 }
 
@@ -107,4 +130,10 @@ export function flattenedForRender(): Item[] {
 
 export function bucketItems(bucket: Bucket): Item[] {
   return itemsIn(bucket);
+}
+
+export function allDoneItems(): Item[] {
+  return state.items
+    .filter((i) => i.done)
+    .sort((a, b) => a.order - b.order);
 }

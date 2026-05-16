@@ -37,6 +37,7 @@ export function initPullToAdd(
   isLocked: () => boolean,
   onCommit: () => void,
   setPullActive: (active: boolean) => void,
+  tryUnlock?: () => void,
 ): void {
   const content = container.querySelector<HTMLElement>('.pull-row-content');
 
@@ -57,25 +58,36 @@ export function initPullToAdd(
   function snapBack(then?: () => void): void {
     container.style.transition = `height ${PULL_SNAP_MS}ms ease`;
     container.style.height = '0';
-    if (content) content.style.opacity = '';
+    if (content) {
+      content.style.transition = `opacity ${PULL_SNAP_MS}ms ease`;
+      content.style.opacity = '0';
+    }
     container.classList.remove('pull-past-threshold');
     window.setTimeout(() => {
       container.style.transition = '';
+      if (content) content.style.transition = '';
       if (then) then();
     }, PULL_SNAP_MS);
   }
 
   function cancel(): void {
     if (!active) return;
-    const wasCommitted = committed;
     cleanup();
-    if (wasCommitted) snapBack();
+    snapBack();
   }
 
   function onTouchStart(e: TouchEvent): void {
-    if (isLocked()) return;
     if (window.scrollY !== 0) return;
     if (e.touches.length !== 1) return;
+    let locked = isLocked();
+    if (locked && tryUnlock) {
+      console.log('[pull:unlock] locked=true, calling tryUnlock');
+      tryUnlock();
+      locked = isLocked();
+      console.log('[pull:unlock] locked after tryUnlock:', locked);
+    }
+    console.log('[pull:start] scrollY:', window.scrollY, 'locked:', locked, 'touches:', e.touches.length);
+    if (locked) return;
     active = true;
     committed = false;
     pullDist = 0;
@@ -86,15 +98,25 @@ export function initPullToAdd(
 
   function onTouchMove(e: TouchEvent): void {
     if (!active) return;
-    if (isLocked()) { cancel(); return; }
+    const locked = isLocked();
+    if (locked) {
+      console.log('[pull:move] isLocked — cancelling. committed:', committed, 'pullDist:', pullDist.toFixed(0));
+      cancel(); return;
+    }
     if (e.touches.length !== 1) { cancel(); return; }
     const touch = e.touches[0]!;
     const dx = Math.abs(touch.clientX - startX);
     const dy = touch.clientY - startY;
-    if ((dx > 8 && dx > dy) || dy < -4) { cancel(); return; }
+    if ((dx > 8 && dx > dy) || dy < -4) {
+      console.log('[pull:move] direction cancel dx:', dx.toFixed(0), 'dy:', dy.toFixed(0));
+      cancel(); return;
+    }
     if (dy > 0) {
       e.preventDefault();
-      if (!committed) setPullActive(true);
+      if (!committed) {
+        console.log('[pull:move] first pull dy:', dy.toFixed(0));
+        setPullActive(true);
+      }
       committed = true;
       const prev = pullDist;
       pullDist = dy;
@@ -114,12 +136,18 @@ export function initPullToAdd(
 
   function onTouchEnd(): void {
     if (!active) return;
-    if (isLocked()) { cleanup(); return; }
+    const locked = isLocked();
+    console.log('[pull:end] locked:', locked, 'committed:', committed, 'pullDist:', pullDist.toFixed(0));
+    if (locked) { cleanup(); return; }
     if (!committed) { cleanup(); return; }
     const dist = pullDist;
     cleanup();
     if (dist >= PULL_THRESHOLD_PX) {
-      snapBack(() => onCommit());
+      console.log('[pull:COMMIT] dist:', dist.toFixed(0));
+      container.classList.remove('pull-past-threshold');
+      // Fire immediately so the new item appears on the next RAF while the
+      // pull container is still at full height -- no disappear/reappear gap.
+      onCommit();
     } else {
       snapBack();
     }

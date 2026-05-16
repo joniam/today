@@ -57,6 +57,8 @@ body {
 
 .app {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   max-width: var(--max-width);
   margin: 0 auto;
@@ -93,6 +95,7 @@ body {
 .list {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .bucket {
@@ -102,6 +105,11 @@ body {
 
 .bucket-empty {
   min-height: 48px;
+}
+
+.done-section {
+  background: var(--done-bg);
+  flex: 1;
 }
 
 .bucket-header {
