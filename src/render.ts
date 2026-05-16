@@ -352,11 +352,10 @@ function renderInput(item: Item): HTMLInputElement {
     const dt = performance.now() - lastFocusTime;
     if (!didInteract && item.text === '' && input.value === '' && dt < 300) {
       // iOS auto-blurs inputs focused outside a direct gesture handler.
-      // Suppress deletion: exit edit mode and keep the empty item so the user
-      // can tap once to retry (that tap is close enough to a gesture for iOS).
+      // Delete the empty item rather than leaving it in state as a junk row.
       console.log('[input:auto-blur] suppressed, dt:', dt.toFixed(0), 'ms');
       editingId = null;
-      scheduleRender();
+      deleteItem(item.id);
       return;
     }
     commit();
