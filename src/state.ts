@@ -4,6 +4,7 @@ import { scheduleSave } from './sync/storage';
 
 export const state: AppState = {
   items: [],
+  baseItems: [],
   lastSyncedSha: null,
   lastSyncedAt: null,
   pendingChanges: false,
@@ -22,8 +23,24 @@ export function subscribe(listener: Listener): () => void {
 }
 
 function notify(): void {
+  state.pendingChanges = true;
   for (const listener of listeners) listener();
   scheduleSave();
+}
+
+// Used by the sync engine: notifies listeners without marking pending changes.
+function notifyFromSync(): void {
+  for (const listener of listeners) listener();
+  scheduleSave();
+}
+
+export function applySyncResult(sha: string, items: Item[]): void {
+  state.lastSyncedSha = sha;
+  state.lastSyncedAt = Date.now();
+  state.baseItems = [...items];
+  state.pendingChanges = false;
+  state.items = items;
+  notifyFromSync();
 }
 
 function itemsIn(bucket: Bucket): Item[] {

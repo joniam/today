@@ -33,6 +33,8 @@ export async function loadState(): Promise<void> {
   if (saved) {
     // Apply saved fields onto the existing state object so subscribers stay intact.
     state.items = saved.items;
+    // baseItems was added in Phase 9; old saves won't have it.
+    state.baseItems = (saved.baseItems as typeof saved.baseItems | undefined) ?? [];
     state.lastSyncedSha = saved.lastSyncedSha;
     state.lastSyncedAt = saved.lastSyncedAt;
     state.pendingChanges = saved.pendingChanges;

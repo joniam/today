@@ -484,3 +484,21 @@ body {
   color: var(--hint-color);
   margin-bottom: 20px;
 }
+
+/* ---- Sync status dot ---- */
+
+.status-dot {
+  position: absolute;
+  left: var(--row-padding-x);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transition: background-color 400ms ease;
+}
+
+.status-dot[data-status="fresh"]   { background: rgba(255, 255, 255, 0.2); }
+.status-dot[data-status="syncing"] { background: #f59e0b; }
+.status-dot[data-status="ok"]      { background: #1ec850; }
+.status-dot[data-status="error"]   { background: #ef4444; }

@@ -1,5 +1,6 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
 import { initSettings } from './ui/settings';
+import { getSyncStatus } from './ui/statusDot';
 import {
   addItem,
   addItemAfter,
@@ -241,6 +242,11 @@ function renderBucketHeader(bucket: Bucket, position: number, total: number): HT
   title.textContent = BUCKET_LABELS[bucket];
 
   if (bucket === 'today') {
+    const dot = document.createElement('span');
+    dot.className = 'status-dot';
+    dot.dataset.status = getSyncStatus();
+    header.appendChild(dot);
+
     const built = new Date(__BUILD_TIME__);
     const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
     const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

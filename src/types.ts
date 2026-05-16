@@ -16,6 +16,7 @@ export interface DataRepo {
 
 export interface AppState {
   items: Item[];
+  baseItems: Item[];   // items at lastSyncedSha, used as merge base
   lastSyncedSha: string | null;
   lastSyncedAt: number | null;
   pendingChanges: boolean;
