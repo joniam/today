@@ -1,5 +1,6 @@
 import { ulid } from 'ulid';
 import type { AppState, Bucket, Item } from './types';
+import { scheduleSave } from './sync/storage';
 
 export const state: AppState = {
   items: [],
@@ -22,6 +23,7 @@ export function subscribe(listener: Listener): () => void {
 
 function notify(): void {
   for (const listener of listeners) listener();
+  scheduleSave();
 }
 
 function itemsIn(bucket: Bucket): Item[] {
