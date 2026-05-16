@@ -99,7 +99,7 @@ Commit: "Phase 6: IndexedDB persistence."
 
 Commit: "Phase 7: markdown parser."
 
-## Phase 8: GitHub API + first run setup (in progress)
+## Phase 8: GitHub API + first run setup ✅
 
 - Implement `sync/github.ts` with GET and PUT.
 - Implement first-run screen: if no PAT stored, show setup form (repo owner, repo, path, PAT). Validate with a GET. Store on success.
@@ -110,7 +110,7 @@ Commit: "Phase 7: markdown parser."
 
 Commit: "Phase 8: GitHub API integration."
 
-## Phase 9: Sync engine
+## Phase 9: Sync engine (in progress)
 
 - Implement `sync/engine.ts`.
 - Outbound: debounced 1500ms after any change, run outbound algorithm.
