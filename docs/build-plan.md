@@ -76,7 +76,7 @@ Commit: "Phase 4: drag to reorder and move."
 
 Commit: "Phase 5: pull to add."
 
-## Phase 6: IndexedDB persistence
+## Phase 6: IndexedDB persistence ✅
 
 - Implement `sync/storage.ts` wrapping `idb`.
 - Schema: one object store for state (single record with id 'app').
