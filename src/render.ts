@@ -99,7 +99,14 @@ function buildShell(mount: HTMLElement): void {
       const item = addItemFirst('', 'today');
       editingId = item.id;
       console.log('[pull:onCommit] new editingId:', editingId.slice(-4));
-      scheduleRender();
+      // Cancel the RAF queued by addItemFirst's notify() and render synchronously.
+      // iOS Safari only raises the keyboard when focus() is called within the
+      // touchend handler — a RAF callback is outside that window.
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      render();
     },
     (active) => {
       console.log('[pull:setPullActive]', active, 'editingId:', editingId?.slice(-4) ?? 'null');
