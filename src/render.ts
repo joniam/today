@@ -1,5 +1,6 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
 import { initSettings } from './ui/settings';
+import { initSyncDebug } from './ui/syncDebug';
 import { getSyncStatus } from './ui/statusDot';
 import {
   addItem,
@@ -43,6 +44,7 @@ let dragActive = false;
 let pullActive = false;
 let lastDragEnd = 0;
 let lastFocusTime = 0;
+let openSyncDebug: (() => void) | null = null;
 
 window.addEventListener(
   'touchmove',
@@ -92,6 +94,7 @@ function buildShell(mount: HTMLElement): void {
   }
   app.appendChild(settings);
   initSettings(settings, app);
+  openSyncDebug = initSyncDebug(app);
 
   mount.appendChild(app);
 
@@ -367,6 +370,11 @@ function renderInput(item: Item): HTMLInputElement {
 function onListClick(e: MouseEvent): void {
   const target = e.target as HTMLElement | null;
   if (!target) return;
+
+  if (target.closest<HTMLElement>('.status-dot')) {
+    openSyncDebug?.();
+    return;
+  }
 
   const hint = target.closest<HTMLElement>('.empty-hint');
   if (hint) {

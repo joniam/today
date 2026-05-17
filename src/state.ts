@@ -115,6 +115,7 @@ export function toggleDone(id: string): void {
   const item = state.items.find((i) => i.id === id);
   if (!item) return;
   const completing = !item.done;
+  console.log('[state:toggleDone]', id.slice(-4), completing ? 'completing' : 'uncompleting', 'text:', item.text.slice(0, 20));
   item.done = completing;
   if (completing) {
     // Place at top of done section so most-recently-completed appears first.

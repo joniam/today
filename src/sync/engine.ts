@@ -4,6 +4,24 @@ import { setSyncStatus } from '../ui/statusDot';
 import { getFile, putFile } from './github';
 import { parseMarkdown, serializeMarkdown } from './parser';
 
+export interface SyncEvent {
+  ts: number;
+  type: 'inbound' | 'outbound';
+  outcome: 'ok' | 'skip' | 'error';
+  detail: string;
+}
+
+const syncLog: SyncEvent[] = [];
+
+export function getSyncLog(): readonly SyncEvent[] {
+  return syncLog;
+}
+
+function logEvent(type: SyncEvent['type'], outcome: SyncEvent['outcome'], detail: string): void {
+  syncLog.unshift({ ts: Date.now(), type, outcome, detail });
+  if (syncLog.length > 20) syncLog.pop();
+}
+
 let syncInFlight = false;
 let outboundTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -53,10 +71,12 @@ function scheduleOutbound(): void {
 async function runInbound(): Promise<void> {
   if (!state.authToken) {
     console.log('[engine:inbound] skipped: no auth token');
+    logEvent('inbound', 'skip', 'no auth token');
     return;
   }
   if (syncInFlight) {
     console.log('[engine:inbound] skipped: sync already in flight');
+    logEvent('inbound', 'skip', 'sync in flight');
     return;
   }
   syncInFlight = true;
@@ -69,6 +89,7 @@ async function runInbound(): Promise<void> {
 
     if (remote.sha === state.lastSyncedSha) {
       console.log('[engine:inbound] up to date');
+      logEvent('inbound', 'ok', `up to date — sha ${remote.sha.slice(0, 7)}`);
       setSyncStatus('ok');
       return;
     }
@@ -81,6 +102,7 @@ async function runInbound(): Promise<void> {
     if (!shouldMerge) {
       console.log('[engine:inbound] replacing local with remote —', remoteItems.length, 'items');
       applySyncResult(remote.sha, remoteItems);
+      logEvent('inbound', 'ok', `replaced local — ${remoteItems.length} items, sha ${remote.sha.slice(0, 7)}`);
       setSyncStatus('ok');
     } else {
       const merged = mergeItems(state.baseItems, state.items, remoteItems);
@@ -93,13 +115,22 @@ async function runInbound(): Promise<void> {
       );
       console.log('[engine:inbound] push ok, new sha:', result.sha.slice(0, 7));
       applySyncResult(result.sha, merged);
+      logEvent('inbound', 'ok', `merged and pushed — ${merged.length} items, sha ${result.sha.slice(0, 7)}`);
       setSyncStatus('ok');
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error('[engine:inbound] error:', err);
+    logEvent('inbound', 'error', msg);
     setSyncStatus('error');
   } finally {
     syncInFlight = false;
+    // If local changes were pending when inbound started (and may have been
+    // skipped while syncInFlight was true), give outbound a chance to run now.
+    if (state.pendingChanges) {
+      console.log('[engine:inbound] pending changes detected after inbound — scheduling outbound');
+      scheduleOutbound();
+    }
   }
 }
 
@@ -116,7 +147,13 @@ async function runOutbound(): Promise<void> {
   const currentMarkdown = serializeMarkdown(state.items);
   const baseMarkdown = serializeMarkdown(state.baseItems);
   if (currentMarkdown === baseMarkdown) {
+    if (state.pendingChanges) {
+      console.warn('[engine:outbound] ANOMALY: pendingChanges=true but serializations identical');
+      console.log('[engine:outbound] items:', state.items.map((i) => `${i.bucket}:${i.done ? 'X' : '_'}:${i.text.slice(0, 20)}`).join(' | '));
+      console.log('[engine:outbound] base:', state.baseItems.map((i) => `${i.bucket}:${i.done ? 'X' : '_'}:${i.text.slice(0, 20)}`).join(' | '));
+    }
     console.log('[engine:outbound] skipped: no change since last sync');
+    logEvent('outbound', 'skip', 'no change since last sync');
     return;
   }
 
@@ -136,6 +173,7 @@ async function runOutbound(): Promise<void> {
       break;
     }
     console.error('[engine:outbound] failed after retries');
+    logEvent('outbound', 'error', 'failed after retries');
     setSyncStatus('error');
   } finally {
     syncInFlight = false;
@@ -173,12 +211,18 @@ async function attemptOutbound(
     );
     console.log('[engine:outbound] push ok, new sha:', result.sha.slice(0, 7));
     applySyncResult(result.sha, itemsToPush);
+    logEvent('outbound', 'ok', `pushed — ${itemsToPush.length} items, sha ${result.sha.slice(0, 7)}`);
     setSyncStatus('ok');
     return 'success';
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[engine:outbound] attempt failed:', err);
-    return msg.includes('409') ? 'conflict' : 'error';
+    if (msg.includes('409')) {
+      logEvent('outbound', 'skip', '409 conflict — will retry');
+      return 'conflict';
+    }
+    logEvent('outbound', 'error', msg);
+    return 'error';
   }
 }
 

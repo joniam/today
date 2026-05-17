@@ -502,3 +502,131 @@ body {
 .status-dot[data-status="syncing"] { background: #f59e0b; }
 .status-dot[data-status="ok"]      { background: #1ec850; }
 .status-dot[data-status="error"]   { background: #ef4444; }
+
+/* Make the tap target bigger without affecting the visual dot size */
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+/* ---- Sync debug panel ---- */
+
+.sync-debug-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.sync-debug-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sync-debug-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  background: #161616;
+  border-radius: 16px 16px 0 0;
+  padding: 12px 20px calc(24px + var(--safe-bottom));
+  max-height: 80vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 280ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sync-debug-backdrop.open .sync-debug-sheet {
+  transform: translateY(0);
+}
+
+.sync-debug-body {
+  margin-bottom: 16px;
+}
+
+.sync-debug-section {
+  margin-bottom: 16px;
+}
+
+.sync-debug-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 6px;
+}
+
+.sync-debug-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sync-debug-row:last-child {
+  border-bottom: none;
+}
+
+.sync-debug-row-key {
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.sync-debug-row-value {
+  color: rgba(255, 255, 255, 0.85);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.sync-debug-empty {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 4px 0;
+}
+
+.sync-debug-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sync-debug-event {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sync-debug-event--ok    { border-left: 2px solid #1ec850; }
+.sync-debug-event--skip  { border-left: 2px solid rgba(255, 255, 255, 0.2); }
+.sync-debug-event--error { border-left: 2px solid #ef4444; }
+
+.sync-debug-event-meta {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.sync-debug-event-detail {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  word-break: break-all;
+}
