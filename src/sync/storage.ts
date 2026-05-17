@@ -32,9 +32,13 @@ export async function loadState(): Promise<void> {
   const saved = await database.get(STORE, RECORD_ID);
   if (saved) {
     // Apply saved fields onto the existing state object so subscribers stay intact.
-    state.items = saved.items;
+    // Deep-copy both arrays on load. Old saves used shallow copies in
+    // applySyncResult, which caused items and baseItems to share object
+    // references via IndexedDB's structured-clone. That made every in-place
+    // mutation (toggleDone, editItem) corrupt both arrays simultaneously.
+    state.items = saved.items.map((i) => ({ ...i }));
     // baseItems was added in Phase 9; old saves won't have it.
-    state.baseItems = (saved.baseItems as typeof saved.baseItems | undefined) ?? [];
+    state.baseItems = ((saved.baseItems as typeof saved.baseItems | undefined) ?? []).map((i) => ({ ...i }));
     state.lastSyncedSha = saved.lastSyncedSha;
     state.lastSyncedAt = saved.lastSyncedAt;
     state.pendingChanges = saved.pendingChanges;

@@ -3,6 +3,7 @@ import type { Item } from '../types';
 import { setSyncStatus } from '../ui/statusDot';
 import { getFile, putFile } from './github';
 import { parseMarkdown, serializeMarkdown } from './parser';
+import { scheduleSave } from './storage';
 
 export interface SyncEvent {
   ts: number;
@@ -148,12 +149,20 @@ async function runOutbound(): Promise<void> {
   const baseMarkdown = serializeMarkdown(state.baseItems);
   if (currentMarkdown === baseMarkdown) {
     if (state.pendingChanges) {
-      console.warn('[engine:outbound] ANOMALY: pendingChanges=true but serializations identical');
+      // Base was corrupted: items and base share object references from an old
+      // shallow-copy save, so in-place mutations affected both simultaneously.
+      // Reset base to [] so the next outbound push fires and reconciles with remote.
+      console.warn('[engine:outbound] stale pendingChanges: serializations match — resetting base for recovery push');
       console.log('[engine:outbound] items:', state.items.map((i) => `${i.bucket}:${i.done ? 'X' : '_'}:${i.text.slice(0, 20)}`).join(' | '));
-      console.log('[engine:outbound] base:', state.baseItems.map((i) => `${i.bucket}:${i.done ? 'X' : '_'}:${i.text.slice(0, 20)}`).join(' | '));
+      logEvent('outbound', 'skip', 'stale pending — base reset, recovery push queued');
+      state.baseItems = [];
+      scheduleSave();
+      // pendingChanges stays true — inbound's finally block will reschedule outbound,
+      // which will then see items != empty base and push.
+    } else {
+      console.log('[engine:outbound] skipped: no change since last sync');
+      logEvent('outbound', 'skip', 'no change since last sync');
     }
-    console.log('[engine:outbound] skipped: no change since last sync');
-    logEvent('outbound', 'skip', 'no change since last sync');
     return;
   }
 
