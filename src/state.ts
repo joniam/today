@@ -162,12 +162,12 @@ export function setAuth(
 ): void {
   state.authToken = token;
   state.dataRepo = dataRepo;
-  notify();
+  notifyFromSync();
 }
 
 export function clearAuth(): void {
   state.authToken = null;
-  notify();
+  notifyFromSync();
 }
 
 export function deleteItem(id: string): void {
