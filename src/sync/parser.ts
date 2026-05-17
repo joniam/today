@@ -2,13 +2,14 @@ import { ulid } from 'ulid';
 import type { Bucket, Item } from '../types';
 import { BUCKET_ORDER } from '../state';
 
-const HEADER_REGEX = /^## (Today|Soon|Later)\s*$/;
+const HEADER_REGEX = /^## (Today|Soon|Later|Done)\s*$/;
 const ITEM_REGEX = /^- \[([ xX])\] (.*)$/;
 
-const HEADER_TO_BUCKET: Record<string, Bucket> = {
+const HEADER_TO_BUCKET: Record<string, Bucket | 'done'> = {
   Today: 'today',
   Soon: 'soon',
   Later: 'later',
+  Done: 'done',
 };
 
 function normalize(text: string): string {
@@ -21,8 +22,9 @@ function normalize(text: string): string {
  */
 export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
   const lines = markdown.split('\n');
-  let currentBucket: Bucket | null = null;
+  let currentSection: Bucket | 'done' | null = null;
   const orderCounters: Record<Bucket, number> = { today: 1, soon: 1, later: 1 };
+  let doneOrderCounter = 1;
   const parsed: Item[] = [];
 
   // Build a lookup of existing items for ID preservation.
@@ -35,18 +37,30 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
   for (const line of lines) {
     const headerMatch = HEADER_REGEX.exec(line);
     if (headerMatch) {
-      currentBucket = HEADER_TO_BUCKET[headerMatch[1]!] ?? null;
+      currentSection = HEADER_TO_BUCKET[headerMatch[1]!] ?? null;
       continue;
     }
-    if (!currentBucket) continue;
+    if (!currentSection) continue;
 
     const itemMatch = ITEM_REGEX.exec(line);
     if (!itemMatch) continue;
 
-    const done = itemMatch[1] !== ' ';
     const text = itemMatch[2]!;
-    const bucket = currentBucket;
-    const order = orderCounters[bucket]++;
+
+    let bucket: Bucket;
+    let done: boolean;
+    let order: number;
+
+    if (currentSection === 'done') {
+      // Items in ## Done are always done; bucket defaults to today on un-complete.
+      bucket = 'today';
+      done = true;
+      order = doneOrderCounter++;
+    } else {
+      bucket = currentSection;
+      done = itemMatch[1] !== ' ';
+      order = orderCounters[bucket]++;
+    }
 
     const key = `${bucket}:${normalize(text)}:${done}`;
     const existing_item = existingMap.get(key);
@@ -69,13 +83,22 @@ export function serializeMarkdown(items: Item[]): string {
 
   for (const bucket of BUCKET_ORDER) {
     const bucketItems = items
-      .filter((i) => i.bucket === bucket)
+      .filter((i) => i.bucket === bucket && !i.done)
       .sort((a, b) => a.order - b.order);
 
     const label = bucket.charAt(0).toUpperCase() + bucket.slice(1);
     const lines = [`## ${label}`];
     for (const item of bucketItems) {
-      lines.push(`- [${item.done ? 'x' : ' '}] ${item.text}`);
+      lines.push(`- [ ] ${item.text}`);
+    }
+    sections.push(lines.join('\n'));
+  }
+
+  const doneItems = items.filter((i) => i.done).sort((a, b) => a.order - b.order);
+  if (doneItems.length > 0) {
+    const lines = ['## Done'];
+    for (const item of doneItems) {
+      lines.push(`- [x] ${item.text}`);
     }
     sections.push(lines.join('\n'));
   }
