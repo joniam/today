@@ -33,6 +33,9 @@ export function startEngine(): void {
     if (!document.hidden) {
       console.log('[engine:inbound] trigger: visibility change');
       void triggerInbound();
+    } else {
+      console.log('[engine:outbound] trigger: app backgrounded');
+      triggerOutbound();
     }
   });
 
