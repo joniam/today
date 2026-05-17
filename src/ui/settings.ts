@@ -159,8 +159,9 @@ function buildSettingsSheet(
 }
 
 function buildForm(): { el: HTMLElement; refs: FieldRefs } {
-  const form = document.createElement('div');
+  const form = document.createElement('form');
   form.className = 'auth-form';
+  form.autocomplete = 'on';
 
   const { el: ownerEl, input: owner } = buildField('GitHub owner', 'username or org');
   const { el: repoEl, input: repo } = buildField('Repository', 'my-data-repo');
