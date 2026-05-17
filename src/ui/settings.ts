@@ -1,4 +1,5 @@
 import { clearAuth, setAuth, state, subscribe } from '../state';
+import { triggerInbound } from '../sync/engine';
 import { getFile } from '../sync/github';
 
 interface FieldRefs {
@@ -227,4 +228,6 @@ async function doSave(refs: FieldRefs, errorEl: HTMLElement): Promise<void> {
   }
 
   setAuth(token, { owner, repo, path });
+  console.log('[settings] auth saved, triggering inbound sync');
+  void triggerInbound();
 }
