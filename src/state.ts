@@ -37,9 +37,10 @@ function notifyFromSync(): void {
 export function applySyncResult(sha: string, items: Item[]): void {
   state.lastSyncedSha = sha;
   state.lastSyncedAt = Date.now();
-  state.baseItems = [...items];
+  // Deep copy both arrays so in-place mutations to state.items don't corrupt baseItems.
+  state.baseItems = items.map((i) => ({ ...i }));
   state.pendingChanges = false;
-  state.items = items;
+  state.items = items.map((i) => ({ ...i }));
   notifyFromSync();
 }
 
