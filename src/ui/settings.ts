@@ -149,7 +149,7 @@ function buildSettingsSheet(
 
   function syncFromState(): void {
     refs.owner.value = state.dataRepo.owner;
-    refs.repo.value = state.dataRepo.repo;
+    refs.repo.value = state.dataRepo.repo || 'today-data';
     refs.path.value = state.dataRepo.path || 'today.md';
     refs.token.value = state.authToken ?? '';
     errorEl.textContent = '';
@@ -164,7 +164,7 @@ function buildForm(): { el: HTMLElement; refs: FieldRefs } {
   form.autocomplete = 'on';
 
   const { el: ownerEl, input: owner } = buildField('GitHub owner', 'username or org');
-  const { el: repoEl, input: repo } = buildField('Repository', 'my-data-repo');
+  const { el: repoEl, input: repo } = buildField('Repository', 'today-data');
   const { el: pathEl, input: path } = buildField('File path', 'today.md');
   const { el: tokenEl, input: token } = buildField('Personal access token', '');
   token.type = 'password';
