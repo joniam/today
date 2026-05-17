@@ -110,7 +110,7 @@ Commit: "Phase 7: markdown parser."
 
 Commit: "Phase 8: GitHub API integration."
 
-## Phase 9: Sync engine (in progress)
+## Phase 9: Sync engine ✅
 
 - Implement `sync/engine.ts`.
 - Outbound: debounced 1500ms after any change, run outbound algorithm.
