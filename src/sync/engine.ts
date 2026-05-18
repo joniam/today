@@ -1,5 +1,6 @@
-import { applySyncResult, state, subscribe } from '../state';
+import { applyOutboundResult, applySyncResult, state, subscribe } from '../state';
 import type { Item } from '../types';
+import { isEditing } from '../render';
 import { setSyncStatus } from '../ui/statusDot';
 import { getFile, putFile } from './github';
 import { parseMarkdown, serializeMarkdown } from './parser';
@@ -83,6 +84,11 @@ async function runInbound(): Promise<void> {
     logEvent('inbound', 'skip', 'sync in flight');
     return;
   }
+  if (isEditing()) {
+    console.log('[engine:inbound] skipped: edit in progress');
+    logEvent('inbound', 'skip', 'edit in progress');
+    return;
+  }
   syncInFlight = true;
   setSyncStatus('syncing');
   console.log('[engine:inbound] start — lastSyncedSha:', state.lastSyncedSha?.slice(0, 7) ?? 'null');
@@ -94,6 +100,14 @@ async function runInbound(): Promise<void> {
     if (remote.sha === state.lastSyncedSha) {
       console.log('[engine:inbound] up to date');
       logEvent('inbound', 'ok', `up to date — sha ${remote.sha.slice(0, 7)}`);
+      setSyncStatus('ok');
+      return;
+    }
+
+    // Check again: user may have started editing during the network fetch.
+    if (isEditing()) {
+      console.log('[engine:inbound] aborted: edit started during fetch');
+      logEvent('inbound', 'skip', 'edit started during fetch');
       setSyncStatus('ok');
       return;
     }
@@ -148,7 +162,8 @@ async function runOutbound(): Promise<void> {
     return;
   }
 
-  const currentMarkdown = serializeMarkdown(state.items);
+  const currentItems = state.items.map((i) => ({ ...i }));
+  const currentMarkdown = serializeMarkdown(currentItems);
   const baseMarkdown = serializeMarkdown(state.baseItems);
   if (currentMarkdown === baseMarkdown) {
     if (state.pendingChanges) {
@@ -176,7 +191,7 @@ async function runOutbound(): Promise<void> {
   try {
     const { authToken: token, dataRepo: { owner, repo, path } } = state;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const outcome = await attemptOutbound(token, owner, repo, path, currentMarkdown);
+      const outcome = await attemptOutbound(token, owner, repo, path, currentMarkdown, currentItems);
       if (outcome === 'success') return;
       if (outcome === 'conflict' && attempt < 2) {
         console.log('[engine:outbound] 409 conflict, retry', attempt + 1);
@@ -198,6 +213,7 @@ async function attemptOutbound(
   repo: string,
   path: string,
   currentMarkdown: string,
+  currentItems: Item[],
 ): Promise<'success' | 'conflict' | 'error'> {
   try {
     const remote = await getFile(token, owner, repo, path);
@@ -205,16 +221,18 @@ async function attemptOutbound(
 
     let contentToPush: string;
     let itemsToPush: Item[];
+    let isMerge = false;
 
     if (remote.sha === state.lastSyncedSha) {
       contentToPush = currentMarkdown;
-      itemsToPush = [...state.items];
+      itemsToPush = currentItems;
     } else {
       console.log('[engine:outbound] remote changed since last sync — merging before push');
       const remoteItems = parseMarkdown(remote.content, state.items);
       const merged = mergeItems(state.baseItems, state.items, remoteItems);
       contentToPush = serializeMarkdown(merged);
       itemsToPush = merged;
+      isMerge = true;
     }
 
     const result = await putFile(
@@ -222,7 +240,16 @@ async function attemptOutbound(
       `update from today app @ ${new Date().toISOString()}`,
     );
     console.log('[engine:outbound] push ok, new sha:', result.sha.slice(0, 7));
-    applySyncResult(result.sha, itemsToPush);
+    // For a plain push (no merge), preserve local mutations that occurred during the
+    // async push by only updating baseItems. For a merge, applySyncResult so that
+    // remote-added items appear locally.
+    if (isMerge) {
+      applySyncResult(result.sha, itemsToPush);
+    } else {
+      const isPending = serializeMarkdown(state.items) !== serializeMarkdown(itemsToPush);
+      applyOutboundResult(result.sha, itemsToPush, isPending);
+      if (isPending) scheduleOutbound();
+    }
     logEvent('outbound', 'ok', `pushed — ${itemsToPush.length} items, sha ${result.sha.slice(0, 7)}`);
     setSyncStatus('ok');
     return 'success';

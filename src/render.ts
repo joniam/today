@@ -1,5 +1,5 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
-import { initSettings } from './ui/settings';
+import { initFirstRun } from './ui/settings';
 import { initSyncDebug } from './ui/syncDebug';
 import { getSyncStatus } from './ui/statusDot';
 import {
@@ -83,17 +83,7 @@ function buildShell(mount: HTMLElement): void {
   app.appendChild(list);
   listEl = list;
 
-  const settings = document.createElement('button');
-  settings.type = 'button';
-  settings.className = 'settings-button';
-  settings.setAttribute('aria-label', 'Open settings');
-  for (let i = 0; i < 3; i++) {
-    const dot = document.createElement('span');
-    dot.className = 'settings-button-dot';
-    settings.appendChild(dot);
-  }
-  app.appendChild(settings);
-  initSettings(settings, app);
+  initFirstRun(app);
   openSyncDebug = initSyncDebug(app);
 
   mount.appendChild(app);
@@ -162,6 +152,10 @@ function render(): void {
   }
   listEl.replaceChildren(next);
   listEl.style.backgroundImage = `linear-gradient(to bottom, ${colorForPosition(0, total)}, ${colorForPosition(total - 1, total)})`;
+  // Constrain gradient to content height so empty space below last item stays black.
+  const contentH = Array.from(listEl.children).reduce((h, el) => h + (el as HTMLElement).offsetHeight, 0);
+  listEl.style.backgroundRepeat = 'no-repeat';
+  listEl.style.backgroundSize = `100% ${contentH}px`;
 
   // Re-inject pull container inside Today section, right after the header.
   // The commit path fires onCommit immediately without waiting for snapBack,
@@ -250,13 +244,6 @@ function renderBucketHeader(bucket: Bucket, position: number, total: number): HT
     dot.dataset.status = getSyncStatus();
     header.appendChild(dot);
 
-    const built = new Date(__BUILD_TIME__);
-    const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const build = document.createElement('span');
-    build.className = 'bucket-header-build';
-    build.textContent = `${__BUILD_SHA__} · ${dateStr} ${timeStr}`;
-    header.appendChild(build);
   }
   header.appendChild(title);
 
@@ -316,6 +303,7 @@ function renderInput(item: Item): HTMLInputElement {
   input.value = item.text;
   input.autocomplete = 'off';
   input.spellcheck = false;
+  input.addEventListener('contextmenu', (e) => e.preventDefault());
 
   let cancelled = false;
   let didInteract = false;
@@ -387,9 +375,18 @@ function onListClick(e: MouseEvent): void {
   }
 }
 
+export function isEditing(): boolean {
+  return editingId !== null;
+}
+
 function startEdit(id: string): void {
   editingId = id;
-  scheduleRender();
+  // Render synchronously (same as pull-to-add and Enter-key flows) so the <span>
+  // is replaced with <input> before a second click lands. This prevents Chrome's
+  // text-actions toolbar from triggering on the span during a double-click, and
+  // keeps focus() inside the gesture handler context so iOS honors it.
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+  render();
 }
 
 function commitEdit(id: string, value: string): void {

@@ -1,6 +1,5 @@
-import { getSyncLog } from '../sync/engine';
-import { triggerInbound, triggerOutbound } from '../sync/engine';
-import { state } from '../state';
+import { clearAuth, state } from '../state';
+import { getSyncLog, triggerInbound, triggerOutbound } from '../sync/engine';
 
 function timeAgo(ts: number): string {
   const d = Date.now() - ts;
@@ -25,7 +24,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
 
   const title = document.createElement('div');
   title.className = 'settings-sheet-title';
-  title.textContent = 'Sync Debug';
+  title.textContent = 'Sync';
 
   const body = document.createElement('div');
   body.className = 'sync-debug-body';
@@ -40,16 +39,77 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     refresh();
   });
 
+  const disconnectBtn = document.createElement('button');
+  disconnectBtn.type = 'button';
+  disconnectBtn.className = 'auth-btn-secondary';
+  disconnectBtn.textContent = 'Disconnect';
+  disconnectBtn.addEventListener('click', () => {
+    clearAuth();
+    close();
+  });
+
   sheet.appendChild(handle);
   sheet.appendChild(title);
   sheet.appendChild(body);
   sheet.appendChild(syncBtn);
+  sheet.appendChild(disconnectBtn);
   backdrop.appendChild(sheet);
   mount.appendChild(backdrop);
 
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) backdrop.classList.remove('open');
+  // touch-action: none tells the browser not to handle scroll/zoom on the handle,
+  // which makes pointer events fire reliably even inside an overflow:auto sheet.
+  handle.style.touchAction = 'none';
+
+  let dragStartY = 0;
+  let dragging = false;
+  handle.addEventListener('pointerdown', (e) => {
+    dragStartY = e.clientY;
+    dragging = true;
+    sheet.style.transition = 'none';
+    handle.setPointerCapture(e.pointerId);
   });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dy = e.clientY - dragStartY;
+    if (dy > 0) sheet.style.transform = `translateY(${dy}px)`;
+  });
+  handle.addEventListener('pointerup', (e) => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = e.clientY - dragStartY;
+    if (dy > 60) {
+      sheet.style.transition = '';
+      sheet.style.transform = 'translateY(100%)';
+      setTimeout(() => { close(); sheet.style.transform = ''; }, 280);
+    } else {
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+    }
+  });
+  handle.addEventListener('pointercancel', () => {
+    dragging = false;
+    sheet.style.transition = '';
+    sheet.style.transform = '';
+  });
+
+  // Block all touch and pointer events from reaching the list behind the backdrop.
+  // touchmove must be non-passive so preventDefault() can stop rubber-banding.
+  backdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
+  backdrop.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+  backdrop.addEventListener('touchmove', (e) => {
+    e.stopPropagation();
+    if (!body.contains(e.target as Node)) e.preventDefault();
+  }, { passive: false });
+  backdrop.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
+  backdrop.addEventListener('touchcancel', (e) => e.stopPropagation(), { passive: true });
+  backdrop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (e.target === backdrop) close();
+  });
+
+  function close(): void {
+    backdrop.classList.remove('open');
+  }
 
   function refresh(): void {
     body.replaceChildren(buildBody());
@@ -91,6 +151,14 @@ function buildBody(): DocumentFragment {
     stateSection.appendChild(buildRow('SHA', state.lastSyncedSha.slice(0, 7)));
   }
   frag.appendChild(stateSection);
+
+  // Build info
+  const buildSection_ = buildSection('Build');
+  const built = new Date(__BUILD_TIME__);
+  const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  buildSection_.appendChild(buildRow('Version', `${__BUILD_SHA__} · ${dateStr} ${timeStr}`));
+  frag.appendChild(buildSection_);
 
   // Event log section
   const log = getSyncLog();

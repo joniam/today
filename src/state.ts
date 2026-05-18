@@ -44,6 +44,22 @@ export function applySyncResult(sha: string, items: Item[]): void {
   notifyFromSync();
 }
 
+// Used after a successful outbound push. Updates base to match what was pushed, but
+// leaves state.items untouched so any mutations made during the async push are preserved.
+// Caller computes isPending (serializeMarkdown(items) !== serializeMarkdown(pushedItems))
+// and passes it in to avoid a circular dep (parser imports BUCKET_ORDER from state).
+// Does NOT call notifyFromSync -- no re-render needed since items didn't change,
+// and triggering a render during an edit would reset the input value.
+// The engine calls scheduleOutbound() directly when isPending, and scheduleSave()
+// handles persistence.
+export function applyOutboundResult(sha: string, pushedItems: Item[], isPending: boolean): void {
+  state.lastSyncedSha = sha;
+  state.lastSyncedAt = Date.now();
+  state.baseItems = pushedItems.map((i) => ({ ...i }));
+  state.pendingChanges = isPending;
+  scheduleSave();
+}
+
 function itemsIn(bucket: Bucket): Item[] {
   const sorted = state.items
     .filter((i) => i.bucket === bucket)

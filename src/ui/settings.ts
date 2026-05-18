@@ -1,4 +1,4 @@
-import { clearAuth, setAuth, state, subscribe } from '../state';
+import { setAuth, state, subscribe } from '../state';
 import { triggerInbound } from '../sync/engine';
 import { getFile } from '../sync/github';
 
@@ -9,29 +9,15 @@ interface FieldRefs {
   token: HTMLInputElement;
 }
 
-export function initSettings(button: HTMLElement, mount: HTMLElement): void {
+export function initFirstRun(mount: HTMLElement): void {
   const overlay = buildFirstRunOverlay();
-  const { el: backdrop, syncFromState } = buildSettingsSheet(() => {
-    backdrop.classList.remove('open');
-  });
-
   mount.appendChild(overlay);
-  mount.appendChild(backdrop);
 
-  button.addEventListener('click', () => {
-    syncFromState();
-    backdrop.classList.add('open');
-  });
-
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) backdrop.classList.remove('open');
-  });
-
-  const updateOverlay = (): void => {
+  const update = (): void => {
     overlay.style.display = state.authToken === null ? '' : 'none';
   };
-  updateOverlay();
-  subscribe(updateOverlay);
+  update();
+  subscribe(update);
 }
 
 function buildFirstRunOverlay(): HTMLElement {
@@ -84,78 +70,6 @@ function buildFirstRunOverlay(): HTMLElement {
   content.appendChild(formEl);
   overlay.appendChild(content);
   return overlay;
-}
-
-function buildSettingsSheet(
-  onClose: () => void,
-): { el: HTMLElement; syncFromState: () => void } {
-  const backdrop = document.createElement('div');
-  backdrop.className = 'settings-backdrop';
-
-  const sheet = document.createElement('div');
-  sheet.className = 'settings-sheet';
-
-  const handle = document.createElement('div');
-  handle.className = 'settings-sheet-handle';
-
-  const title = document.createElement('div');
-  title.className = 'settings-sheet-title';
-  title.textContent = 'GitHub Sync';
-
-  const { el: formEl, refs } = buildForm();
-  const errorEl = document.createElement('div');
-  errorEl.className = 'auth-error';
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'auth-btn-primary';
-  saveBtn.textContent = 'Save';
-
-  const disconnectBtn = document.createElement('button');
-  disconnectBtn.type = 'button';
-  disconnectBtn.className = 'auth-btn-secondary';
-  disconnectBtn.textContent = 'Disconnect';
-  disconnectBtn.addEventListener('click', () => {
-    clearAuth();
-    onClose();
-  });
-
-  saveBtn.addEventListener('click', async () => {
-    errorEl.textContent = '';
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-    try {
-      await doSave(refs, errorEl);
-      onClose();
-    } catch {
-      // error already shown in errorEl
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Save';
-    }
-  });
-
-  const actions = document.createElement('div');
-  actions.className = 'auth-actions';
-  actions.appendChild(saveBtn);
-  actions.appendChild(disconnectBtn);
-  actions.appendChild(errorEl);
-
-  formEl.appendChild(actions);
-  sheet.appendChild(handle);
-  sheet.appendChild(title);
-  sheet.appendChild(formEl);
-  backdrop.appendChild(sheet);
-
-  function syncFromState(): void {
-    refs.owner.value = state.dataRepo.owner;
-    refs.repo.value = state.dataRepo.repo || 'today-data';
-    refs.path.value = state.dataRepo.path || 'today.md';
-    refs.token.value = state.authToken ?? '';
-    errorEl.textContent = '';
-  }
-
-  return { el: backdrop, syncFromState };
 }
 
 function buildForm(): { el: HTMLElement; refs: FieldRefs } {

@@ -253,6 +253,7 @@ body {
 
 .row-text {
   word-break: break-word;
+  pointer-events: none;
 }
 
 .row-input {
