@@ -538,7 +538,7 @@ body {
   background: #161616;
   border-radius: 16px 16px 0 0;
   padding: 0;
-  max-height: 80vh;
+  height: min(560px, 85vh);
   overflow: hidden;
   transform: translateY(100%);
   transition: transform 280ms ease;
@@ -583,7 +583,7 @@ body {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
-  padding: 16px 20px calc(20px + var(--safe-bottom));
+  padding: 12px 20px calc(8px + var(--safe-bottom));
 }
 
 .sync-debug-actions .auth-btn-primary,

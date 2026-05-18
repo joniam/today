@@ -13,6 +13,9 @@ function formatTime(ts: number): string {
 }
 
 export function initSyncDebug(mount: HTMLElement): () => void {
+  const themeColorMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  const defaultThemeColor = themeColorMeta?.getAttribute('content') ?? '#c0392b';
+
   const backdrop = document.createElement('div');
   backdrop.className = 'sync-debug-backdrop';
 
@@ -40,51 +43,47 @@ export function initSyncDebug(mount: HTMLElement): () => void {
   const body = document.createElement('div');
   body.className = 'sync-debug-body';
 
-  // Actions row: Sync Now + Disconnect side by side
+  // Actions row: Sync Now + Disconnect side by side.
+  // When disconnect is armed, syncBtn becomes Cancel and disconnectBtn becomes Confirm.
   const actionsRow = document.createElement('div');
   actionsRow.className = 'sync-debug-actions';
+
+  let disconnectArmed = false;
+
+  function armDisconnect(): void {
+    disconnectArmed = true;
+    syncBtn.textContent = 'Cancel';
+    syncBtn.className = 'auth-btn-secondary';
+    disconnectBtn.textContent = 'Confirm';
+    disconnectBtn.className = 'auth-btn-danger';
+  }
+
+  function resetDisconnect(): void {
+    disconnectArmed = false;
+    syncBtn.textContent = 'Sync Now';
+    syncBtn.className = 'auth-btn-primary';
+    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.className = 'auth-btn-secondary';
+  }
 
   const syncBtn = document.createElement('button');
   syncBtn.type = 'button';
   syncBtn.className = 'auth-btn-primary';
   syncBtn.textContent = 'Sync Now';
   syncBtn.addEventListener('click', () => {
+    if (disconnectArmed) { resetDisconnect(); return; }
     triggerInbound();
     triggerOutbound();
-    refresh();
+    // Refresh after the sync has had time to complete (outbound debounce is 1500ms + round trip)
+    setTimeout(refresh, 3500);
   });
 
-  // Two-step disconnect: first tap changes to "Sure?", second tap confirms.
-  // Any other interaction resets it.
   const disconnectBtn = document.createElement('button');
   disconnectBtn.type = 'button';
   disconnectBtn.className = 'auth-btn-secondary';
   disconnectBtn.textContent = 'Disconnect';
-  let disconnectArmed = false;
-  let armTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function armDisconnect(): void {
-    disconnectArmed = true;
-    disconnectBtn.textContent = 'Sure?';
-    disconnectBtn.classList.add('auth-btn-danger');
-    armTimer = setTimeout(resetDisconnect, 3000);
-  }
-
-  function resetDisconnect(): void {
-    disconnectArmed = false;
-    disconnectBtn.textContent = 'Disconnect';
-    disconnectBtn.classList.remove('auth-btn-danger');
-    if (armTimer !== null) { clearTimeout(armTimer); armTimer = null; }
-  }
-
   disconnectBtn.addEventListener('click', () => {
-    if (!disconnectArmed) {
-      armDisconnect();
-    } else {
-      clearAuth();
-      resetDisconnect();
-      close();
-    }
+    if (!disconnectArmed) { armDisconnect(); } else { clearAuth(); resetDisconnect(); close(); }
   });
 
   actionsRow.appendChild(syncBtn);
@@ -123,10 +122,13 @@ export function initSyncDebug(mount: HTMLElement): () => void {
   function close(): void {
     backdrop.classList.remove('open');
     if (refreshInterval !== null) { clearInterval(refreshInterval); refreshInterval = null; }
+    if (themeColorMeta) themeColorMeta.setAttribute('content', defaultThemeColor);
   }
 
   function refresh(): void {
+    const scrollTop = body.scrollTop;
     body.replaceChildren(buildBody());
+    body.scrollTop = scrollTop;
   }
 
   return () => {
@@ -134,6 +136,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     refresh();
     backdrop.classList.add('open');
     refreshInterval = setInterval(refresh, 2000);
+    if (themeColorMeta) themeColorMeta.setAttribute('content', '#0a0a0a');
   };
 }
 
