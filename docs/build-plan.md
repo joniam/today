@@ -181,5 +181,9 @@ Tracked here so they don't get lost between phases.
 - After Phase 9: is sync reliable end to end? Test edits from both sides.
 - After Phase 12: daily-use ready check.
 
-## Bug backlog
-- When removing the last item in Later and/or removing the last completed task, the black background at the bottom became a smooth orange/yellow gradient. Is should be black after the last item.
+## Bug / task backlog
+- A way to clear all the completed tasks
+- Task notes
+- A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
+- Better icon for the PWA. Inspired by Clear's icon, but not the same; this is a bit of a spoof after all. Maybe it could be a little toungue and cheek?
+- Time estimates

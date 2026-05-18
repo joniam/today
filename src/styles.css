@@ -537,14 +537,62 @@ body {
   margin: 0 auto;
   background: #161616;
   border-radius: 16px 16px 0 0;
-  padding: 12px 20px calc(24px + var(--safe-bottom));
+  padding: 20px 20px calc(24px + var(--safe-bottom));
   max-height: 80vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   transform: translateY(100%);
   transition: transform 280ms ease;
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.sync-debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.sync-debug-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.sync-debug-close:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sync-debug-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.sync-debug-actions .auth-btn-primary,
+.sync-debug-actions .auth-btn-secondary,
+.sync-debug-actions .auth-btn-danger {
+  flex: 1;
+  width: auto;
+}
+
+.auth-btn-danger {
+  width: 100%;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  padding: 12px;
+  cursor: pointer;
 }
 
 .sync-debug-backdrop.open .sync-debug-sheet {
@@ -605,6 +653,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sync-debug-event {

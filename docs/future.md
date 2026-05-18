@@ -161,6 +161,41 @@ Until one of those is on the table, the current architecture is the right tool. 
 
 ---
 
+## Tooling for working with the list via Claude
+
+Two complementary pieces, both deferred until v1 is stable:
+
+### A Today skill (reactive)
+
+A `SKILL.md` file that teaches Claude how to read and edit the Today list correctly. Lives in the `today-data` repo at `.claude/skills/today/SKILL.md` so it travels with the data.
+
+Contents: file location, current format (sections, item syntax, metadata conventions), common operations (add/complete/move/reorder), and explicit DO-NOTs (no extra sections, no frontmatter, don't reformat existing items, don't delete completed without permission).
+
+Activates when you ask Claude (in Claude Code or any environment with file access) to do something with the list. Use cases:
+
+- "Create new todos based on these meeting notes"
+- "How many hours of tasks do I have today?"
+- "Which Today items look stale?"
+- "Move everything I haven't touched in a week to Later"
+
+Don't write this until the format stabilizes (post-v1.2 at earliest). Writing it earlier means rewriting it as IDs and metadata get added.
+
+### A scheduled agent (proactive)
+
+This is v2.0 in the roadmap above. A GitHub Action that runs daily, reads the file, applies rules, optionally calls an LLM, and commits results back. Does work without being asked.
+
+Use cases:
+
+- Increment punt counters when items roll over without completion
+- Surface graveyard candidates
+- Daily summary of what got done vs. planned
+
+### How they relate
+
+The skill is documentation Claude reads when you invoke it. The agent is code that runs on a schedule. Both reference the same file format. Build the agent first (v2.0); write the skill when you've used the format long enough to know it's not going to change much.
+
+---
+
 ## How to use this doc
 
 When v1 is in daily use and you start feeling friction:

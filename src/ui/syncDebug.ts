@@ -19,15 +19,30 @@ export function initSyncDebug(mount: HTMLElement): () => void {
   const sheet = document.createElement('div');
   sheet.className = 'sync-debug-sheet';
 
-  const handle = document.createElement('div');
-  handle.className = 'settings-sheet-handle';
+  // Header row: title + close button
+  const header = document.createElement('div');
+  header.className = 'sync-debug-header';
 
   const title = document.createElement('div');
   title.className = 'settings-sheet-title';
   title.textContent = 'Sync';
 
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'sync-debug-close';
+  closeBtn.textContent = '×';
+  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.addEventListener('click', close);
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
   const body = document.createElement('div');
   body.className = 'sync-debug-body';
+
+  // Actions row: Sync Now + Disconnect side by side
+  const actionsRow = document.createElement('div');
+  actionsRow.className = 'sync-debug-actions';
 
   const syncBtn = document.createElement('button');
   syncBtn.type = 'button';
@@ -39,72 +54,68 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     refresh();
   });
 
+  // Two-step disconnect: first tap changes to "Sure?", second tap confirms.
+  // Any other interaction resets it.
   const disconnectBtn = document.createElement('button');
   disconnectBtn.type = 'button';
   disconnectBtn.className = 'auth-btn-secondary';
   disconnectBtn.textContent = 'Disconnect';
+  let disconnectArmed = false;
+  let armTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function armDisconnect(): void {
+    disconnectArmed = true;
+    disconnectBtn.textContent = 'Sure?';
+    disconnectBtn.classList.add('auth-btn-danger');
+    armTimer = setTimeout(resetDisconnect, 3000);
+  }
+
+  function resetDisconnect(): void {
+    disconnectArmed = false;
+    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.classList.remove('auth-btn-danger');
+    if (armTimer !== null) { clearTimeout(armTimer); armTimer = null; }
+  }
+
   disconnectBtn.addEventListener('click', () => {
-    clearAuth();
-    close();
+    if (!disconnectArmed) {
+      armDisconnect();
+    } else {
+      clearAuth();
+      resetDisconnect();
+      close();
+    }
   });
 
-  sheet.appendChild(handle);
-  sheet.appendChild(title);
+  actionsRow.appendChild(syncBtn);
+  actionsRow.appendChild(disconnectBtn);
+
+  sheet.appendChild(header);
   sheet.appendChild(body);
-  sheet.appendChild(syncBtn);
-  sheet.appendChild(disconnectBtn);
+  sheet.appendChild(actionsRow);
   backdrop.appendChild(sheet);
   mount.appendChild(backdrop);
 
-  // touch-action: none tells the browser not to handle scroll/zoom on the handle,
-  // which makes pointer events fire reliably even inside an overflow:auto sheet.
-  handle.style.touchAction = 'none';
+  // Block all touch/pointer events from reaching the list.
+  // Applied to both backdrop AND sheet — belt-and-suspenders.
+  for (const el of [backdrop, sheet]) {
+    el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    el.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
+    el.addEventListener('touchcancel', (e) => e.stopPropagation(), { passive: true });
+  }
+  // touchmove must be non-passive to call preventDefault and stop rubber-banding.
+  // Only prevent default outside the scrollable body so body content can still scroll.
+  for (const el of [backdrop, sheet]) {
+    el.addEventListener('touchmove', (e) => {
+      e.stopPropagation();
+      if (!body.contains(e.target as Node)) e.preventDefault();
+    }, { passive: false });
+  }
 
-  let dragStartY = 0;
-  let dragging = false;
-  handle.addEventListener('pointerdown', (e) => {
-    dragStartY = e.clientY;
-    dragging = true;
-    sheet.style.transition = 'none';
-    handle.setPointerCapture(e.pointerId);
-  });
-  handle.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dy = e.clientY - dragStartY;
-    if (dy > 0) sheet.style.transform = `translateY(${dy}px)`;
-  });
-  handle.addEventListener('pointerup', (e) => {
-    if (!dragging) return;
-    dragging = false;
-    const dy = e.clientY - dragStartY;
-    if (dy > 60) {
-      sheet.style.transition = '';
-      sheet.style.transform = 'translateY(100%)';
-      setTimeout(() => { close(); sheet.style.transform = ''; }, 280);
-    } else {
-      sheet.style.transition = '';
-      sheet.style.transform = '';
-    }
-  });
-  handle.addEventListener('pointercancel', () => {
-    dragging = false;
-    sheet.style.transition = '';
-    sheet.style.transform = '';
-  });
-
-  // Block all touch and pointer events from reaching the list behind the backdrop.
-  // touchmove must be non-passive so preventDefault() can stop rubber-banding.
-  backdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
-  backdrop.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-  backdrop.addEventListener('touchmove', (e) => {
-    e.stopPropagation();
-    if (!body.contains(e.target as Node)) e.preventDefault();
-  }, { passive: false });
-  backdrop.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
-  backdrop.addEventListener('touchcancel', (e) => e.stopPropagation(), { passive: true });
   backdrop.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (e.target === backdrop) close();
+    if (e.target === backdrop) { resetDisconnect(); close(); }
   });
 
   function close(): void {
@@ -116,6 +127,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
   }
 
   return () => {
+    resetDisconnect();
     refresh();
     backdrop.classList.add('open');
   };
@@ -141,7 +153,6 @@ function buildBody(): DocumentFragment {
   const activeItems = state.items.filter((i) => !i.done).length;
   stateSection.appendChild(buildRow('Items', `${activeItems} active, ${totalItems - activeItems} done`));
   stateSection.appendChild(buildRow('Pending', state.pendingChanges ? 'yes' : 'no'));
-
   if (state.lastSyncedAt !== null) {
     stateSection.appendChild(buildRow('Last sync', `${formatTime(state.lastSyncedAt)} (${timeAgo(state.lastSyncedAt)})`));
   } else {
@@ -153,16 +164,16 @@ function buildBody(): DocumentFragment {
   frag.appendChild(stateSection);
 
   // Build info
-  const buildSection_ = buildSection('Build');
+  const buildSect = buildSection('Build');
   const built = new Date(__BUILD_TIME__);
   const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  buildSection_.appendChild(buildRow('Version', `${__BUILD_SHA__} · ${dateStr} ${timeStr}`));
-  frag.appendChild(buildSection_);
+  buildSect.appendChild(buildRow('Version', `${__BUILD_SHA__} · ${dateStr} ${timeStr}`));
+  frag.appendChild(buildSect);
 
-  // Event log section
-  const log = getSyncLog();
-  const logSection = buildSection(`Recent events (${log.length})`);
+  // Event log — capped at 5 most recent
+  const log = getSyncLog().slice(0, 5);
+  const logSection = buildSection('Recent events');
   if (log.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'sync-debug-empty';
