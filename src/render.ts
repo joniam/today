@@ -469,6 +469,14 @@ function animateComplete(rowEl: HTMLElement, item: Item): void {
       ),
     );
 
+    // Switch to active styling before flying so the tile shows its destination color.
+    rowEl.classList.remove('row-done');
+    content.style.background = ''; // clear inline done-bg set during complete animation
+    const activeCount = state.items.filter((i) => !i.done).length;
+    const newTotal = activeCount + 1 + 3; // this item becomes active, +3 headers
+    const newPos = todayRows.length + 1; // today header at 0, existing today rows, then this
+    content.style.backgroundImage = rowBackgroundForPosition(newPos, newTotal);
+
     rowEl.style.overflow = 'visible';
     rowEl.style.zIndex = '10';
     listEl.style.backgroundImage = 'none';

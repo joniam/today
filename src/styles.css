@@ -240,6 +240,7 @@ body {
   background-image: none !important;
   background-color: #1ec850 !important;
   box-shadow: none !important;
+  color: var(--row-fg) !important;
   text-shadow: none;
   transition: background-color 100ms ease;
 }
