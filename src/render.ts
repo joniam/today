@@ -343,10 +343,8 @@ function renderInput(item: Item): HTMLInputElement {
     const dt = performance.now() - lastFocusTime;
     if (!didInteract && item.text === '' && input.value === '' && dt < 300) {
       // iOS auto-blurs inputs focused outside a direct gesture handler.
-      // Delete the empty item rather than leaving it in state as a junk row.
       console.log('[input:auto-blur] suppressed, dt:', dt.toFixed(0), 'ms');
-      editingId = null;
-      deleteItem(item.id);
+      cancelEdit(item.id);
       return;
     }
     commit();
@@ -395,7 +393,8 @@ function commitEdit(id: string, value: string): void {
   const item = state.items.find((i) => i.id === id);
   if (item) {
     if (trimmed === '' && item.text === '') {
-      deleteItem(id);
+      cancelEdit(id);
+      return;
     } else if (trimmed !== '' && trimmed !== item.text) {
       editItem(id, trimmed);
     }
