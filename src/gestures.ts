@@ -1,9 +1,11 @@
 const SWIPE_THRESHOLD_PX = 70;
+const RUBBER_BAND_FACTOR = 0.3;
 const SCROLL_DOMINANCE = 8;
 const TAP_MOVE_LIMIT = 8;
 const TAP_TIME_LIMIT = 400;
 const SNAP_DURATION_MS = 150;
-const COMMIT_DELETE_DURATION_MS = 200;
+const DELETE_FLY_MS = 200;
+const DELETE_COLLAPSE_MS = 180;
 const LONG_PRESS_MS = 300;
 const LONG_PRESS_MOVE_TOLERANCE = 8;
 
@@ -16,6 +18,7 @@ export interface RowGestureCallbacks {
   onCompleteCommit: () => void;
   onDeleteCommit: () => void;
   onLongPress: (pointerId: number, clientX: number, clientY: number) => void;
+  setSwipeActive: (active: boolean) => void;
 }
 
 type Mode = 'idle' | 'tracking' | 'swipe' | 'scroll' | 'long-press';
@@ -204,8 +207,9 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
 
   function applyVisualForDx(dx: number): void {
     if (dx > SWIPE_THRESHOLD_PX) {
-      // Past complete threshold: lock content at threshold position.
-      content!.style.transform = `translateX(${SWIPE_THRESHOLD_PX}px)`;
+      const over = dx - SWIPE_THRESHOLD_PX;
+      const visualDx = SWIPE_THRESHOLD_PX + over * RUBBER_BAND_FACTOR;
+      content!.style.transform = `translateX(${visualDx}px)`;
       row.classList.add('show-complete');
       row.classList.remove('show-delete');
       setPastThreshold(true);
@@ -215,7 +219,9 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
       row.classList.remove('show-delete');
       setPastThreshold(false);
     } else if (dx < -SWIPE_THRESHOLD_PX) {
-      content!.style.transform = `translateX(${-SWIPE_THRESHOLD_PX}px)`;
+      const over = (-dx) - SWIPE_THRESHOLD_PX;
+      const visualDx = -(SWIPE_THRESHOLD_PX + over * RUBBER_BAND_FACTOR);
+      content!.style.transform = `translateX(${visualDx}px)`;
       row.classList.add('show-delete');
       row.classList.remove('show-complete');
       setPastThreshold(true);
@@ -248,21 +254,40 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   }
 
   function commitComplete(pointerId: number): void {
+    callbacks.setSwipeActive(true);
     release(pointerId);
     content!.style.transition = `transform ${SNAP_DURATION_MS}ms ease`;
     content!.style.transform = 'translateX(0)';
-    window.setTimeout(() => callbacks.onCompleteCommit(), SNAP_DURATION_MS);
+    window.setTimeout(() => {
+      clearTransform();
+      callbacks.onCompleteCommit();
+    }, SNAP_DURATION_MS);
   }
 
   function commitDelete(pointerId: number): void {
+    callbacks.setSwipeActive(true);
     release(pointerId);
-    const h = row.offsetHeight;
-    row.style.height = `${h}px`;
-    void row.offsetHeight;
-    row.style.transition = `height ${COMMIT_DELETE_DURATION_MS}ms ease, opacity ${COMMIT_DELETE_DURATION_MS}ms ease`;
-    row.style.height = '0';
-    row.style.opacity = '0';
-    window.setTimeout(() => callbacks.onDeleteCommit(), COMMIT_DELETE_DURATION_MS);
+    // Clear swipe state so action layers hide
+    row.classList.remove('show-complete', 'show-delete', 'past-threshold');
+    row.style.overflow = 'visible';
+    pastThreshold = false;
+    // Fly tile off screen to the left from its current rubber-banded position
+    const flyDest = -(window.innerWidth + row.offsetWidth);
+    content!.style.transition = `transform ${DELETE_FLY_MS}ms ease-in`;
+    content!.style.transform = `translateX(${flyDest}px)`;
+    // After tile exits, collapse the row height
+    window.setTimeout(() => {
+      const h = row.offsetHeight;
+      row.style.height = `${h}px`;
+      void row.offsetHeight;
+      row.style.transition = `height ${DELETE_COLLAPSE_MS}ms ease, opacity ${DELETE_COLLAPSE_MS}ms ease`;
+      row.style.height = '0';
+      row.style.opacity = '0';
+    }, DELETE_FLY_MS);
+    window.setTimeout(() => {
+      callbacks.setSwipeActive(false);
+      callbacks.onDeleteCommit();
+    }, DELETE_FLY_MS + DELETE_COLLAPSE_MS);
   }
 
   row.addEventListener('pointerdown', (e: PointerEvent) => {

@@ -43,9 +43,12 @@ let editingId: string | null = null;
 let dragActive = false;
 let pullActive = false;
 let collapseActive = false;
+let swipeActive = false;
 let lastDragEnd = 0;
 let lastFocusTime = 0;
 let openSyncDebug: (() => void) | null = null;
+
+const FLY_COMPLETE_MS = 220;
 
 window.addEventListener(
   'touchmove',
@@ -120,7 +123,7 @@ function buildShell(mount: HTMLElement): void {
 }
 
 function scheduleRender(): void {
-  if (dragActive || pullActive || collapseActive) return;
+  if (dragActive || pullActive || collapseActive || swipeActive) return;
   if (rafId !== null) return;
   rafId = requestAnimationFrame(() => {
     rafId = null;
@@ -129,7 +132,7 @@ function scheduleRender(): void {
 }
 
 function render(): void {
-  if (!listEl || collapseActive) return;
+  if (!listEl || collapseActive || swipeActive) return;
 
   // Position map covers only active items + bucket headers (done items use CSS color).
   const headerPos: Record<Bucket, number> = { today: 0, soon: 0, later: 0 };
@@ -288,9 +291,10 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
   if (editingId !== item.id) {
     attachRowGestures(row, {
       onTap: () => startEdit(item.id),
-      onCompleteCommit: () => toggleDone(item.id),
+      onCompleteCommit: () => animateComplete(row, item),
       onDeleteCommit: () => deleteItem(item.id),
       onLongPress: (pointerId, clientX, clientY) => startDrag(row, item.id, pointerId, clientX, clientY),
+      setSwipeActive: (active) => { swipeActive = active; },
     });
   }
 
@@ -428,6 +432,71 @@ function cancelEdit(id: string): void {
   }
   editingId = null;
   scheduleRender();
+}
+
+function animateComplete(rowEl: HTMLElement, item: Item): void {
+  if (item.done) {
+    // Uncomplete: no fly animation, just toggle back to active
+    swipeActive = false;
+    toggleDone(item.id);
+    return;
+  }
+
+  const content = rowEl.querySelector<HTMLElement>('.row-content');
+  if (!content || !listEl) {
+    swipeActive = false;
+    toggleDone(item.id);
+    return;
+  }
+
+  const rowRect = rowEl.getBoundingClientRect();
+  const rowH = rowRect.height;
+
+  // Destination: top of done section (adjusted for source removal) or bottom of active content
+  const doneSectionEl = listEl.querySelector<HTMLElement>('.done-section');
+  let destY: number;
+  if (doneSectionEl) {
+    // Done section will shift up by rowH when source leaves active area
+    destY = doneSectionEl.getBoundingClientRect().top - rowH;
+  } else {
+    // No done section yet; it appears at bottom of active content after source is removed
+    const allBuckets = Array.from(listEl.querySelectorAll<HTMLElement>('.bucket'));
+    const lastBucket = allBuckets[allBuckets.length - 1];
+    destY = lastBucket ? lastBucket.getBoundingClientRect().bottom - rowH : rowRect.bottom + 20;
+  }
+  const flyDy = destY - rowRect.top;
+
+  // Apply done styling immediately
+  rowEl.classList.add('row-done');
+  content.style.background = 'var(--done-bg)';
+  rowEl.style.overflow = 'visible';
+  rowEl.style.zIndex = '10';
+
+  // Elements to shift up: active rows, empty hints, and headers that come after source in DOM order
+  const shiftEls = Array.from(
+    listEl.querySelectorAll<HTMLElement>('.bucket .row, .bucket .empty-hint, .bucket-header'),
+  );
+  const srcIdx = shiftEls.indexOf(rowEl);
+  const toShift = srcIdx >= 0 ? shiftEls.slice(srcIdx + 1) : [];
+
+  // Set transitions (before reflow so browser sees current state as baseline)
+  for (const el of toShift) el.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+  if (doneSectionEl) doneSectionEl.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+  content.style.transition = '';
+
+  // Force reflow so transitions fire from current positions
+  void listEl.offsetHeight;
+
+  // Apply transforms
+  for (const el of toShift) el.style.transform = `translateY(-${rowH}px)`;
+  if (doneSectionEl) doneSectionEl.style.transform = `translateY(-${rowH}px)`;
+  content.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+  content.style.transform = `translateY(${flyDy}px)`;
+
+  window.setTimeout(() => {
+    swipeActive = false;
+    toggleDone(item.id);
+  }, FLY_COMPLETE_MS);
 }
 
 interface DragSlot {
@@ -576,15 +645,27 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
 
   function applyReflow(target: DragSlot): void {
     if (target.flatIdx === lastTargetFlatIdx && target.bucket === lastTargetBucket) return;
+
+    // Restore hint for the bucket we're leaving (if it was empty)
+    if (lastTargetBucket !== 'done') {
+      const prevSectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${lastTargetBucket}"]`);
+      const prevHint = prevSectionEl?.querySelector<HTMLElement>('.empty-hint');
+      if (prevHint) prevHint.style.visibility = '';
+    }
+
     lastTargetFlatIdx = target.flatIdx;
     lastTargetBucket = target.bucket;
     const targetFlatIdx = target.flatIdx;
     // Treat 'done' section as virtual bucket index 3 so header shifts work correctly.
     const tgtBucketIdx = target.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(target.bucket as Bucket);
-    // Empty target bucket: source just floats over the hint — nothing shifts.
-    const targetBucketEmpty = target.bucket === 'done'
-      ? false
-      : bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
+    // Empty target bucket: source floats over it — hide the hint and skip reflow.
+    const targetBucketEmpty = target.bucket !== 'done' &&
+      bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
+    if (targetBucketEmpty) {
+      const targetSectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${target.bucket}"]`);
+      const targetHint = targetSectionEl?.querySelector<HTMLElement>('.empty-hint');
+      if (targetHint) targetHint.style.visibility = 'hidden';
+    }
 
     for (let i = 0; i < allRows.length; i++) {
       const r = allRows[i]!;
@@ -751,6 +832,13 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       `→ tgt=${target.flatIdx}(${target.bucket}[${target.indexInBucket}])`,
       `finalDy=${finalDy.toFixed(0)} snapTargetY=${snapTargetY.toFixed(0)}`
     );
+
+    // Restore all empty-bucket hints before snap (re-render will replace them anyway)
+    for (const bucket of BUCKET_ORDER) {
+      const sectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${bucket}"]`);
+      const hint = sectionEl?.querySelector<HTMLElement>('.empty-hint');
+      if (hint) hint.style.visibility = '';
+    }
 
     if (sourceContent) {
       sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease`;
