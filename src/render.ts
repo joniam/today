@@ -42,6 +42,7 @@ let rafId: number | null = null;
 let editingId: string | null = null;
 let dragActive = false;
 let pullActive = false;
+let collapseActive = false;
 let lastDragEnd = 0;
 let lastFocusTime = 0;
 let openSyncDebug: (() => void) | null = null;
@@ -119,7 +120,7 @@ function buildShell(mount: HTMLElement): void {
 }
 
 function scheduleRender(): void {
-  if (dragActive || pullActive) return;
+  if (dragActive || pullActive || collapseActive) return;
   if (rafId !== null) return;
   rafId = requestAnimationFrame(() => {
     rafId = null;
@@ -128,7 +129,7 @@ function scheduleRender(): void {
 }
 
 function render(): void {
-  if (!listEl) return;
+  if (!listEl || collapseActive) return;
 
   // Position map covers only active items + bucket headers (done items use CSS color).
   const headerPos: Record<Bucket, number> = { today: 0, soon: 0, later: 0 };
@@ -412,10 +413,12 @@ function cancelEdit(id: string): void {
       const h = rowEl.offsetHeight;
       rowEl.style.height = `${h}px`;
       void rowEl.offsetHeight;
+      collapseActive = true;
       rowEl.style.transition = 'height 200ms ease, opacity 200ms ease';
       rowEl.style.height = '0';
       rowEl.style.opacity = '0';
       window.setTimeout(() => {
+        collapseActive = false;
         editingId = null;
         deleteItem(id);
       }, 200);
