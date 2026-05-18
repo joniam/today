@@ -472,6 +472,10 @@ function animateComplete(rowEl: HTMLElement, item: Item): void {
   rowEl.style.overflow = 'visible';
   rowEl.style.zIndex = '10';
 
+  // Clear list gradient so the bottom of the screen stays dark while the done
+  // section container shifts up. Re-render restores it when toggleDone fires.
+  listEl.style.backgroundImage = 'none';
+
   // Elements to shift up: active rows, empty hints, headers after source (excluding done-section rows).
   // .done-section has class "bucket" so .bucket .row would match done rows too — exclude explicitly.
   const shiftEls = Array.from(
