@@ -856,8 +856,19 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
           void allRows[target.flatIdx]!.offsetHeight;
         }
       } else if (target.flatIdx === sourceFlatIdx + 1) {
-        // Adjacent slot, source is the last row overall -- snap to source's own bottom.
-        finalDy = originalRowBottoms[sourceFlatIdx]! - sourceRect.top;
+        if (target.bucket !== sourceBucket) {
+          // Source is the last row; target is an empty bucket below it.
+          // Snap to the hint position, accounting for whether source bucket shrinks.
+          const targetSection = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${target.bucket}"]`);
+          const hint = targetSection?.querySelector<HTMLElement>('.empty-hint');
+          const hintTop = hint?.getBoundingClientRect().top ?? (originalRowBottoms[sourceFlatIdx]! + sourceHeight);
+          finalDy = sourceIdxInBucket > 0
+            ? hintTop - sourceHeight - sourceRect.top
+            : hintTop - sourceRect.top;
+        } else {
+          // Adjacent slot, source is the last row overall -- snap to source's own bottom.
+          finalDy = originalRowBottoms[sourceFlatIdx]! - sourceRect.top;
+        }
       } else {
         // General case: target is 2+ slots below source. Snap to the row just above
         // the target slot, which will be at originalRowTops[target.flatIdx - 1] after
