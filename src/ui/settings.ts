@@ -79,7 +79,9 @@ function buildForm(): { el: HTMLElement; refs: FieldRefs } {
 
   const { el: ownerEl, input: owner } = buildField('GitHub owner', 'username or org');
   const { el: repoEl, input: repo } = buildField('Repository', 'today-data');
+  repo.value = 'today-data';
   const { el: pathEl, input: path } = buildField('File path', 'today.md');
+  path.value = 'today.md';
   const { el: tokenEl, input: token } = buildField('Personal access token', '');
   token.type = 'password';
   token.autocomplete = 'current-password';
