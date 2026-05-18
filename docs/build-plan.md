@@ -140,15 +140,15 @@ Dropped the three-dot settings sheet entirely. Simplified to two surfaces:
 
 Commit: "Phase 10: sync status panel and first-run settings."
 
-## Phase 11: PWA polish
+## Phase 11: PWA polish ✅
 
-- Service worker for offline shell caching.
-- Update detection banner.
-- Web manifest fully configured.
-- Apple touch icons.
-- Verify install-to-home-screen works on iOS.
+- `vite-plugin-pwa` with `generateSW` strategy; precaches all built assets for offline shell.
+- Manual SW registration in `src/pwa.ts`; skipped in dev mode.
+- Update detection via `updatefound`/`statechange` events; sets dot to yellow (pulsing) when a new SW is waiting.
+- `checkForUpdate()` called on every status panel open; "Apply →" row appears in Build section when update is available; tapping reloads with new SW.
+- New app icon: 4-bar full-bleed heat-map gradient (red→orange→gold), bottom bar 25% swiped right revealing green — a spoof of Clear's icon. Generated PNG assets at 512, 192, 180px from SVG source.
 
-**Testable state:** Can install as PWA on iPhone. Works offline (reading; sync waits for connection).
+**Testable state:** Installs as PWA. Loads offline. Deploy a new build, reopen app, yellow dot appears; open status panel, tap Apply, reloads with new version.
 
 Commit: "Phase 11: PWA polish."
 
@@ -191,7 +191,6 @@ Tracked here so they don't get lost between phases.
 - A way to clear all the completed tasks
 - Task notes
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
-- Better icon for the PWA. Inspired by Clear's icon, but not the same; this is a bit of a spoof after all. Maybe it could be a little toungue and cheek?
 - Time estimates
 - On mobile, when cancelling new item creation, the row does not nicely animate away (it does this on desktop chrome though)
 - Menu scrim doesn't go all the way to the top on iOS.
