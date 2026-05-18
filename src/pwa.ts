@@ -18,6 +18,7 @@ export function applyUpdate(): void {
 
 export function initPwa(): void {
   if (!('serviceWorker' in navigator)) return;
+  if (import.meta.env.DEV) return;
 
   navigator.serviceWorker.register('/today/sw.js', { scope: '/today/' }).then((reg) => {
     registration = reg;
