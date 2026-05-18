@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="10" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Bars (full bleed) -->
+  <rect x="0"   y="0"   width="512" height="128" fill="#c42828"/>
+  <rect x="0"   y="128" width="512" height="128" fill="#d95e20"/>
+  <rect x="0"   y="256" width="512" height="128" fill="#e88c20"/>
+  <rect x="0"   y="384" width="512" height="128" fill="#1ec850"/>
+  <rect x="128" y="384" width="512" height="128" fill="#f0c020"/>
+
+  <!-- Calendar page, centered, floating above bars -->
+  <g filter="url(#shadow)" opacity="0.95">
+    <!-- Ring tabs (drawn first; body overlaps their lower halves) -->
+    <rect x="183" y="128" width="28" height="44" rx="9" fill="white"/>
+    <rect x="301" y="128" width="28" height="44" rx="9" fill="white"/>
+    <!-- Main body (covers lower portion of rings) -->
+    <rect x="146" y="148" width="220" height="230" rx="14" fill="white"/>
+    <!-- Header band separator -->
+    <rect x="146" y="200" width="220" height="3" fill="rgba(0,0,0,0.08)"/>
+  </g>
+</svg>

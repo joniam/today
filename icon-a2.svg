@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Same but with 3px dark gaps between bars to read more as a list. -->
+  <rect x="0" y="0"   width="512" height="512" fill="#1a1a1a"/>
+  <rect x="0" y="0"   width="512" height="126" fill="#c42828"/>
+  <rect x="0" y="129" width="512" height="126" fill="#d95e20"/>
+  <rect x="0" y="258" width="512" height="126" fill="#e88c20"/>
+  <!-- Bottom bar: green behind, gold shifted right 25% -->
+  <rect x="0"   y="387" width="512" height="125" fill="#1ec850"/>
+  <rect x="128" y="387" width="512" height="125" fill="#f0c020"/>
+</svg>
