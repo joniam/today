@@ -436,9 +436,54 @@ function cancelEdit(id: string): void {
 
 function animateComplete(rowEl: HTMLElement, item: Item): void {
   if (item.done) {
-    // Uncomplete: no fly animation, just toggle back to active
-    swipeActive = false;
-    toggleDone(item.id);
+    const content = rowEl.querySelector<HTMLElement>('.row-content');
+    if (!content || !listEl) {
+      swipeActive = false;
+      toggleDone(item.id);
+      return;
+    }
+
+    const rowRect = rowEl.getBoundingClientRect();
+    const rowH = rowRect.height;
+
+    // Destination: bottom of last active Today item, or below Today header if Today is empty
+    const todaySection = listEl.querySelector<HTMLElement>('.bucket[data-bucket="today"]');
+    const todayRows = Array.from(todaySection?.querySelectorAll<HTMLElement>('.row') ?? []);
+    const lastTodayRow = todayRows[todayRows.length - 1];
+    let destY: number;
+    if (lastTodayRow) {
+      destY = lastTodayRow.getBoundingClientRect().bottom;
+    } else {
+      const todayHeader = todaySection?.querySelector<HTMLElement>('.bucket-header');
+      destY = todayHeader?.getBoundingClientRect().bottom ?? rowRect.top - rowH;
+    }
+    const flyDy = destY - rowRect.top; // negative — tile flies upward
+
+    // Create space in Today by shifting Soon + Later content down
+    const toShiftDown = Array.from(
+      listEl.querySelectorAll<HTMLElement>(
+        '.bucket-header[data-bucket="soon"], ' +
+        '.bucket[data-bucket="soon"] .row, .bucket[data-bucket="soon"] .empty-hint, ' +
+        '.bucket-header[data-bucket="later"], ' +
+        '.bucket[data-bucket="later"] .row, .bucket[data-bucket="later"] .empty-hint',
+      ),
+    );
+
+    rowEl.style.overflow = 'visible';
+    rowEl.style.zIndex = '10';
+    listEl.style.backgroundImage = 'none';
+
+    for (const el of toShiftDown) el.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+    content.style.transition = '';
+    void listEl.offsetHeight;
+    for (const el of toShiftDown) el.style.transform = `translateY(${rowH}px)`;
+    content.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+    content.style.transform = `translateY(${flyDy}px)`;
+
+    window.setTimeout(() => {
+      swipeActive = false;
+      toggleDone(item.id);
+    }, FLY_COMPLETE_MS);
     return;
   }
 
