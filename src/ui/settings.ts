@@ -109,6 +109,7 @@ function buildField(
   input.placeholder = placeholder;
   input.autocomplete = 'off';
   input.spellcheck = false;
+  input.autocapitalize = 'off';
 
   label.appendChild(span);
   label.appendChild(input);
