@@ -123,16 +123,22 @@ Commit: "Phase 8: GitHub API integration."
 
 Commit: "Phase 9: sync engine."
 
-## Phase 10: Settings sheet UI
+## Phase 10: Sync status panel and settings ✅
 
-- Implement `ui/settings.ts`.
-- Bottom sheet: tap floating button to open, tap outside or swipe down to close.
-- Sections: sync status, font size, build info, auth, data. (Theme switcher dropped for v1; we ship a single dark theme. See deferred decisions.)
-- Wire up "Force sync now", "Open data file in GitHub", "Export markdown".
+Dropped the three-dot settings sheet entirely. Simplified to two surfaces:
 
-**Testable state:** Settings sheet works.
+- `ui/settings.ts`: first-run overlay only. Shows when no auth token is set; hides on successful connect. Fields: owner, repo, path, PAT. Validates with a GET before saving.
+- `ui/syncDebug.ts`: sync status panel, opened by tapping the status dot. Bottom sheet with fixed height. Header (title + close button) and action row (Sync Now / Disconnect) are pinned; body scrolls.
+  - Body sections: Connection, State (items, pending, last sync, SHA), Build (version + date), Recent events (last 5, live-updating every 2s).
+  - Disconnect uses a two-button confirm flow: first tap swaps both buttons to Cancel / Confirm (danger), no auto-clear.
+  - Sync Now triggers inbound + outbound and refreshes the panel after ~3.5s.
+  - On open, `theme-color` meta is set dark so the iOS status bar joins the scrim; restored on close.
+- Sync defers while an edit is in progress (inbound skipped; outbound completes but does not re-render).
+- Outbound race condition fixed: items snapshot captured before awaits; `applyOutboundResult` used instead of `applySyncResult` so local mutations during a push are not clobbered.
 
-Commit: "Phase 10: settings sheet."
+**Testable state:** Status dot opens sync panel. First-run overlay appears when not authenticated.
+
+Commit: "Phase 10: sync status panel and first-run settings."
 
 ## Phase 11: PWA polish
 
@@ -187,3 +193,5 @@ Tracked here so they don't get lost between phases.
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
 - Better icon for the PWA. Inspired by Clear's icon, but not the same; this is a bit of a spoof after all. Maybe it could be a little toungue and cheek?
 - Time estimates
+- On mobile, when cancelling new item creation, the row does not nicely animate away (it does this on desktop chrome though)
+- Menu scrim doesn't go all the way to the top on iOS.
