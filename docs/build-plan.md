@@ -192,4 +192,5 @@ Tracked here so they don't get lost between phases.
 - Task notes
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
 - Time estimates
+- Menu scrim doesn't extend to the top of the screen on iOS (status bar area stays the app's red theme-color instead of matching the scrim).
 - Shake to undo: undo stack in state.ts (snapshot before each mutation, capped depth), undo() restores last snapshot, shake detection via DeviceMotionEvent, iOS 13+ requires permission via a user gesture (surface in status panel), brief "Undone" toast as feedback. Sync-incoming changes should not be pushed onto the undo stack.
