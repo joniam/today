@@ -192,5 +192,4 @@ Tracked here so they don't get lost between phases.
 - Task notes
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
 - Time estimates
-- On mobile, when cancelling new item creation, the row does not nicely animate away (it does this on desktop chrome though)
-- Menu scrim doesn't go all the way to the top on iOS.
+- Shake to undo: undo stack in state.ts (snapshot before each mutation, capped depth), undo() restores last snapshot, shake detection via DeviceMotionEvent, iOS 13+ requires permission via a user gesture (surface in status panel), brief "Undone" toast as feedback. Sync-incoming changes should not be pushed onto the undo stack.
