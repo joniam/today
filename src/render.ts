@@ -472,16 +472,27 @@ function animateComplete(rowEl: HTMLElement, item: Item): void {
   rowEl.style.overflow = 'visible';
   rowEl.style.zIndex = '10';
 
-  // Elements to shift up: active rows, empty hints, and headers that come after source in DOM order
+  // Elements to shift up: active rows, empty hints, headers after source (excluding done-section rows).
+  // .done-section has class "bucket" so .bucket .row would match done rows too — exclude explicitly.
   const shiftEls = Array.from(
-    listEl.querySelectorAll<HTMLElement>('.bucket .row, .bucket .empty-hint, .bucket-header'),
+    listEl.querySelectorAll<HTMLElement>(
+      '.bucket:not(.done-section) .row, .bucket:not(.done-section) .empty-hint, .bucket-header',
+    ),
   );
   const srcIdx = shiftEls.indexOf(rowEl);
   const toShift = srcIdx >= 0 ? shiftEls.slice(srcIdx + 1) : [];
 
-  // Set transitions (before reflow so browser sees current state as baseline)
+  // Done rows counter-shift: container moves up by rowH, rows move down by rowH,
+  // net absolute position = 0. This keeps existing done items stationary while
+  // the container top opens up to receive the incoming item.
+  const doneRows = doneSectionEl
+    ? Array.from(doneSectionEl.querySelectorAll<HTMLElement>('.row'))
+    : [];
+
+  // Set transitions before reflow so browser records current positions as baseline
   for (const el of toShift) el.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
   if (doneSectionEl) doneSectionEl.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
+  for (const dr of doneRows) dr.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
   content.style.transition = '';
 
   // Force reflow so transitions fire from current positions
@@ -490,6 +501,7 @@ function animateComplete(rowEl: HTMLElement, item: Item): void {
   // Apply transforms
   for (const el of toShift) el.style.transform = `translateY(-${rowH}px)`;
   if (doneSectionEl) doneSectionEl.style.transform = `translateY(-${rowH}px)`;
+  for (const dr of doneRows) dr.style.transform = `translateY(${rowH}px)`;
   content.style.transition = `transform ${FLY_COMPLETE_MS}ms ease`;
   content.style.transform = `translateY(${flyDy}px)`;
 
