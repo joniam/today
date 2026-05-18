@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'node:child_process';
 
 function gitShortSha(): string {
@@ -21,4 +22,18 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: true,
   },
+  plugins: [
+    VitePWA({
+      registerType: 'prompt',
+      injectRegister: null,
+      base: '/today/',
+      scope: '/today/',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        navigateFallback: '/today/index.html',
+        navigateFallbackDenylist: [/^\/today\/api/],
+      },
+      manifest: false,
+    }),
+  ],
 });

@@ -1,5 +1,6 @@
 import { clearAuth, state } from '../state';
 import { getSyncLog, triggerInbound, triggerOutbound } from '../sync/engine';
+import { applyUpdate, checkForUpdate, updateAvailable } from '../pwa';
 
 function timeAgo(ts: number): string {
   const d = Date.now() - ts;
@@ -133,6 +134,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
 
   return () => {
     resetDisconnect();
+    checkForUpdate();
     refresh();
     backdrop.classList.add('open');
     refreshInterval = setInterval(refresh, 2000);
@@ -176,6 +178,9 @@ function buildBody(): DocumentFragment {
   const dateStr = built.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const timeStr = built.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   buildSect.appendChild(buildRow('Version', `${__BUILD_SHA__} · ${dateStr} ${timeStr}`));
+  if (updateAvailable()) {
+    buildSect.appendChild(buildUpdateRow());
+  }
   frag.appendChild(buildSect);
 
   // Event log — capped at 5 most recent
@@ -210,6 +215,25 @@ function buildBody(): DocumentFragment {
   frag.appendChild(logSection);
 
   return frag;
+}
+
+function buildUpdateRow(): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'sync-debug-row';
+
+  const k = document.createElement('span');
+  k.className = 'sync-debug-row-key';
+  k.textContent = 'Update';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'sync-debug-update-btn';
+  btn.textContent = 'Apply →';
+  btn.addEventListener('click', applyUpdate);
+
+  row.appendChild(k);
+  row.appendChild(btn);
+  return row;
 }
 
 function buildSection(label: string): HTMLElement {

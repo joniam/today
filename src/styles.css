@@ -503,6 +503,12 @@ body {
 .status-dot[data-status="syncing"] { background: #f59e0b; }
 .status-dot[data-status="ok"]      { background: #1ec850; }
 .status-dot[data-status="error"]   { background: #ef4444; }
+.status-dot[data-status="update"]  { background: #facc15; animation: dot-pulse 1.8s ease-in-out infinite; }
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
 
 /* Make the tap target bigger without affecting the visual dot size */
 .status-dot::after {
@@ -655,6 +661,17 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
   word-break: break-all;
+}
+
+.sync-debug-update-btn {
+  background: none;
+  border: none;
+  color: #facc15;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
 }
 
 .sync-debug-empty {

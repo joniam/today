@@ -1,4 +1,4 @@
-export type SyncStatus = 'fresh' | 'syncing' | 'ok' | 'error';
+export type SyncStatus = 'fresh' | 'syncing' | 'ok' | 'error' | 'update';
 
 let currentStatus: SyncStatus = 'fresh';
 
