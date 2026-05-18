@@ -25,7 +25,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
 
   const title = document.createElement('div');
   title.className = 'settings-sheet-title';
-  title.textContent = 'Sync';
+  title.textContent = 'Status';
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
@@ -118,8 +118,11 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     if (e.target === backdrop) { resetDisconnect(); close(); }
   });
 
+  let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
   function close(): void {
     backdrop.classList.remove('open');
+    if (refreshInterval !== null) { clearInterval(refreshInterval); refreshInterval = null; }
   }
 
   function refresh(): void {
@@ -130,6 +133,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     resetDisconnect();
     refresh();
     backdrop.classList.add('open');
+    refreshInterval = setInterval(refresh, 2000);
   };
 }
 
