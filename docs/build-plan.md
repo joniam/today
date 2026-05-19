@@ -197,19 +197,6 @@ Commit: "Phase 11: PWA polish."
 
 Commit: "Phase 12: animation polish."
 
-## Deferred decisions
-
-Tracked here so they don't get lost. Review individually before acting.
-
-- **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
-
-## Verification points where Jonathan should check in
-
-- After Phase 1: does the visual feel right? Heat map readable? Dividers right?
-- After Phase 4: do the gestures feel good on phone?
-- After Phase 9: is sync reliable end to end? Test edits from both sides.
-- After Phase 12: daily-use ready check.
-
 ## Bug / task backlog
 - A way to clear all the completed tasks
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
