@@ -612,6 +612,8 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   const srcBucketIdx = item.done ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(sourceBucket);
   const sourceItems = bucketItems(sourceBucket);
   const sourceIdxInBucket = sourceItems.findIndex((i) => i.id === itemId);
+  // Source bucket will show its empty-hint after this drag if source is the only active item.
+  const sourceBucketBecomesEmpty = sourceItems.filter((i) => !i.done).length === 1;
 
   const slots: DragSlot[] = [];
   let flatCursor = 0;
@@ -683,6 +685,23 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     sourceContent.style.transform = 'translate(0, 0) scale(1.06)';
     sourceContent.style.willChange = 'transform';
   }
+
+  // If lifting the only item in its bucket, overlay the ghost row with hint text
+  // so the placeholder reads as "tap to add" during the drag. Position absolute
+  // so it doesn't affect the ghost row's height.
+  let ghostHintEl: HTMLElement | null = null;
+  if (sourceBucketBecomesEmpty) {
+    ghostHintEl = document.createElement('div');
+    ghostHintEl.className = 'empty-hint';
+    ghostHintEl.textContent = EMPTY_HINTS[sourceBucket];
+    ghostHintEl.style.position = 'absolute';
+    ghostHintEl.style.inset = '0';
+    ghostHintEl.style.display = 'flex';
+    ghostHintEl.style.alignItems = 'center';
+    ghostHintEl.style.zIndex = '10';
+    ghostHintEl.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
+    row.appendChild(ghostHintEl);
+  }
   for (const r of allRows) {
     if (r === row) continue;
     r.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
@@ -698,6 +717,9 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   let lastTargetBucket: Bucket | 'done' = item.done ? 'done' : sourceBucket;
   let currentDy = 0;
   let currentDx = 0;
+  // Tracks which target bucket has had its slot midY values shifted to match
+  // the visual row positions during sectionShiftsUp drags.
+  let midYAdjustedForBucket: Bucket | 'done' | null = null;
 
   function findTargetSlot(clientY: number): DragSlot {
     let best = slots[0]!;
@@ -715,25 +737,48 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   function applyReflow(target: DragSlot): void {
     if (target.flatIdx === lastTargetFlatIdx && target.bucket === lastTargetBucket) return;
 
-    // Restore hint for the bucket we're leaving (if it was empty)
-    if (lastTargetBucket !== 'done') {
-      const prevSectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${lastTargetBucket}"]`);
-      const prevHint = prevSectionEl?.querySelector<HTMLElement>('.empty-hint');
-      if (prevHint) prevHint.style.visibility = '';
-    }
-
     lastTargetFlatIdx = target.flatIdx;
     lastTargetBucket = target.bucket;
     const targetFlatIdx = target.flatIdx;
     // Treat 'done' section as virtual bucket index 3 so header shifts work correctly.
     const tgtBucketIdx = target.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(target.bucket as Bucket);
-    // Empty target bucket: source floats over it — hide the hint and skip reflow.
     const targetBucketEmpty = target.bucket !== 'done' &&
       bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
-    if (targetBucketEmpty) {
-      const targetSectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${target.bucket}"]`);
-      const targetHint = targetSectionEl?.querySelector<HTMLElement>('.empty-hint');
-      if (targetHint) targetHint.style.visibility = 'hidden';
+
+    // When source is the only item in its bucket and target is in an earlier bucket,
+    // the whole source section (header + ghost row) shifts down as a unit to create
+    // the insertion slot, and everything below it shifts down too.
+    const sectionShiftsDown = sourceBucketBecomesEmpty && !targetBucketEmpty && tgtBucketIdx < srcBucketIdx;
+    // Mirror: target is in a later bucket. Source section stays same height (hint holds
+    // the ghost slot), so rows between source and target don't shift up. Only rows at/after
+    // the insertion point in the target bucket shift down to open the slot.
+    const sectionShiftsUp = sourceBucketBecomesEmpty && !targetBucketEmpty && tgtBucketIdx > srcBucketIdx;
+
+    // When sectionShiftsUp, rows in the target bucket (from index 1 onward) and every bucket
+    // after it shift down by sourceHeight. Adjust those slot midY values by +sourceHeight so
+    // transition thresholds stay aligned with visual row positions. Slot 0 of the target bucket
+    // is NOT adjusted: it is the insertion-before-first-item slot and must stay at the original
+    // row top so the tile can enter the bucket header zone without bouncing back.
+    if (sectionShiftsUp && midYAdjustedForBucket !== target.bucket) {
+      if (midYAdjustedForBucket !== null) {
+        const prevBktIdx = midYAdjustedForBucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(midYAdjustedForBucket as Bucket);
+        for (const slot of slots) {
+          const slotBktIdx = slot.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(slot.bucket as Bucket);
+          if (slotBktIdx > prevBktIdx || (slotBktIdx === prevBktIdx && slot.indexInBucket > 0)) slot.midY -= sourceHeight;
+        }
+      }
+      for (const slot of slots) {
+        const slotBktIdx = slot.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(slot.bucket as Bucket);
+        if (slotBktIdx > tgtBucketIdx || (slotBktIdx === tgtBucketIdx && slot.indexInBucket > 0)) slot.midY += sourceHeight;
+      }
+      midYAdjustedForBucket = target.bucket;
+    } else if (!sectionShiftsUp && midYAdjustedForBucket !== null) {
+      const prevBktIdx = midYAdjustedForBucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(midYAdjustedForBucket as Bucket);
+      for (const slot of slots) {
+        const slotBktIdx = slot.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(slot.bucket as Bucket);
+        if (slotBktIdx > prevBktIdx || (slotBktIdx === prevBktIdx && slot.indexInBucket > 0)) slot.midY -= sourceHeight;
+      }
+      midYAdjustedForBucket = null;
     }
 
     for (let i = 0; i < allRows.length; i++) {
@@ -741,6 +786,24 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       if (r === row) continue;
       let dy = 0;
       if (!targetBucketEmpty) {
+        if (sectionShiftsUp) {
+          const rowBucket = allRows[i]!.closest<HTMLElement>('.bucket')?.dataset.bucket;
+          const rowBktIdx = rowBucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(rowBucket as Bucket);
+          if (rowBktIdx > tgtBucketIdx || (rowBktIdx === tgtBucketIdx && i >= targetFlatIdx)) {
+            dy = sourceHeight;
+          }
+        } else {
+          if (targetFlatIdx > sourceFlatIdx) {
+            if (i > sourceFlatIdx && i < targetFlatIdx) dy = -sourceHeight;
+          } else if (targetFlatIdx < sourceFlatIdx) {
+            if (i >= targetFlatIdx && i < sourceFlatIdx) dy = sourceHeight;
+          }
+          if (sectionShiftsDown && i > sourceFlatIdx) dy = sourceHeight;
+        }
+      } else if (targetFlatIdx !== sourceFlatIdx) {
+        // Even when the target bucket is empty, rows between source and target still
+        // shift so the ghost slot stays visually consistent with the last non-empty
+        // slot the tile passed through.
         if (targetFlatIdx > sourceFlatIdx) {
           if (i > sourceFlatIdx && i < targetFlatIdx) dy = -sourceHeight;
         } else if (targetFlatIdx < sourceFlatIdx) {
@@ -755,10 +818,19 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       const hdrBucketIdx = BUCKET_ORDER.indexOf(hdrBucket);
       let dy = 0;
       if (!targetBucketEmpty) {
-        if (srcBucketIdx >= hdrBucketIdx && tgtBucketIdx < hdrBucketIdx) dy = sourceHeight;
-        else if (srcBucketIdx < hdrBucketIdx && tgtBucketIdx >= hdrBucketIdx) dy = -sourceHeight;
+        if (sectionShiftsUp) {
+          if (hdrBucketIdx > tgtBucketIdx) dy = sourceHeight;
+        } else {
+          if (srcBucketIdx >= hdrBucketIdx && tgtBucketIdx < hdrBucketIdx) dy = sourceHeight;
+          else if (srcBucketIdx < hdrBucketIdx && tgtBucketIdx >= hdrBucketIdx) dy = -sourceHeight;
+          if (sectionShiftsDown && hdrBucketIdx > srcBucketIdx) dy = sourceHeight;
+        }
       }
       h.style.transform = dy === 0 ? '' : `translateY(${dy}px)`;
+    }
+
+    if (ghostHintEl) {
+      ghostHintEl.style.transform = sectionShiftsDown ? `translateY(${sourceHeight}px)` : '';
     }
   }
 
@@ -870,11 +942,19 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
           finalDy = originalRowBottoms[sourceFlatIdx]! - sourceRect.top;
         }
       } else {
-        // General case: target is 2+ slots below source. Snap to the row just above
-        // the target slot, which will be at originalRowTops[target.flatIdx - 1] after
-        // re-render (source bucket shrinks but target slot is far enough away that the
-        // shift doesn't affect the landing position relative to the preceding row).
-        finalDy = originalRowTops[target.flatIdx - 1]! - sourceRect.top;
+        // General case: target is 2+ slots below source.
+        const tgtBktIdx = target.bucket === 'done' ? BUCKET_ORDER.length : BUCKET_ORDER.indexOf(target.bucket as Bucket);
+        if (sourceBucketBecomesEmpty && tgtBktIdx > srcBucketIdx) {
+          // Source section keeps its height (hint fills ghost slot). Target bucket rows
+          // shifted DOWN during drag, so item lands at allRows[target.flatIdx]'s original top.
+          finalDy = target.flatIdx < allRows.length
+            ? originalRowTops[target.flatIdx]! - sourceRect.top
+            : originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
+        } else {
+          // Source bucket shrinks on re-render, pulling rows below it up by sourceHeight.
+          // Item lands at originalRowTops[target.flatIdx - 1] (one row-height above target slot).
+          finalDy = originalRowTops[target.flatIdx - 1]! - sourceRect.top;
+        }
       }
     } else if (target.flatIdx < sourceFlatIdx) {
       // Check whether allRows[target.flatIdx] actually belongs to target.bucket.
@@ -900,9 +980,17 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
         finalDy = originalRowTops[target.flatIdx]! - sourceRect.top;
       }
     } else {
-      // Same flatIdx, different bucket: source is first in its bucket, target is
-      // the end-of-previous-bucket slot. Snap to the bottom of the last row there.
-      finalDy = originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
+      // Same flatIdx, different bucket. Two sub-cases:
+      if (target.indexInBucket === 0) {
+        // Target is an empty bucket — snap to its hint (bottom of that bucket's header).
+        const targetSection = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${target.bucket}"]`);
+        const hint = targetSection?.querySelector<HTMLElement>('.empty-hint');
+        finalDy = (hint?.getBoundingClientRect().top ?? originalRowTops[target.flatIdx]!) - sourceRect.top;
+      } else {
+        // Source is first in its bucket; target is the end-of-previous-bucket slot.
+        // Snap to the bottom of the last row of that bucket.
+        finalDy = originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
+      }
     }
 
     const finishT = performance.now();
@@ -912,13 +1000,6 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       `→ tgt=${target.flatIdx}(${target.bucket}[${target.indexInBucket}])`,
       `finalDy=${finalDy.toFixed(0)} snapTargetY=${snapTargetY.toFixed(0)}`
     );
-
-    // Restore all empty-bucket hints before snap (re-render will replace them anyway)
-    for (const bucket of BUCKET_ORDER) {
-      const sectionEl = listEl!.querySelector<HTMLElement>(`.bucket[data-bucket="${bucket}"]`);
-      const hint = sectionEl?.querySelector<HTMLElement>('.empty-hint');
-      if (hint) hint.style.visibility = '';
-    }
 
     if (sourceContent) {
       sourceContent.style.transition = `transform ${DRAG_SNAP_MS}ms ease`;
@@ -930,6 +1011,21 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
           `top=${r.top.toFixed(0)} h=${r.height.toFixed(0)}`
         );
       }, { once: true });
+    }
+
+    // When dropping into an empty bucket and the source bucket has remaining items,
+    // the source row's layout space would otherwise snap away at re-render. Collapse
+    // it in sync with the tile snap so the gap closes with animation.
+    // Only applies to empty-bucket drops: non-empty drops already have row transforms
+    // applied that would double-shift if height also changed.
+    const targetBucketIsEmpty = target.bucket !== 'done' &&
+      bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
+    if (targetBucketIsEmpty && sourceItems.length > 1) {
+      const h = row.offsetHeight;
+      row.style.height = `${h}px`;
+      void row.offsetHeight;
+      row.style.transition = `height ${DRAG_SNAP_MS}ms ease`;
+      row.style.height = '0';
     }
 
     window.setTimeout(() => {
@@ -962,7 +1058,9 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       return;
     }
 
-    const remaining = bucketItems(target.bucket as Bucket).filter((i) => i.id !== itemId);
+    // Slots are built from active rows only, so remaining must match — exclude
+    // done items whose order values can be far below active items and skew the midpoint.
+    const remaining = bucketItems(target.bucket as Bucket).filter((i) => i.id !== itemId && !i.done);
     let adjustedIdx = target.indexInBucket;
     if (target.bucket === sourceBucket && target.indexInBucket > sourceIdxInBucket) {
       adjustedIdx -= 1;

@@ -154,31 +154,54 @@ Commit: "Phase 11: PWA polish."
 
 ## Phase 12: Animations and polish pass
 
-- Tune timings.
-- Add color transitions on heat map updates after reorder.
-- Tighten swipe physics.
-- Test on actual iPhone, fix anything that feels off.
+### 1. Swipe physics overhaul
+
+**During drag (both directions):**
+- Before threshold (70px): tile tracks finger 1:1 as today.
+- Past threshold: apply rubber-band damping instead of locking. Each pixel of finger movement past the threshold moves the tile ~0.3px. Tile keeps moving but resists, preventing accidental full-screen flings.
+
+**Delete (left swipe), release past threshold:**
+1. Tile animates off to the left edge (translate to `-100vw` or similar, ~200ms).
+2. Row height collapses to 0 (CSS transition, ~150ms, starts after or overlaps with step 1).
+3. State mutation (`deleteItem`) fires after animation completes.
+- Use a `swipeActive` flag (like `collapseActive`) to block re-renders during the animation.
+
+**Complete (right swipe), release past threshold:**
+1. Tile snaps back to x=0 (spring, ~150ms).
+2. Tile transitions to done styling in place (strikethrough, done colors).
+3. Tile animates downward to the top of the done section while items between its current position and the done section slide up to close the gap (~200ms).
+4. State mutation (`toggleDone`) fires after animation completes.
+- Destination Y: snapshot the position of the first existing done item in the bucket before animating (or the bottom of the last active item if no done items exist yet).
+- Newly completed items go to the top of the done section. Implement by assigning `order = minDoneOrder - 1` on completion (or 0 if no done items). No `completedAt` timestamp needed.
+- Uncompleting an item continues to append it to the bottom of active items (existing behavior).
+
+### 2. Empty bucket drag fix
+
+**Problem:** The `.empty-hint` placeholder in an empty bucket participates in reflow during drag as if it were a real row -- rows shift around it, making room for it. It should be inert: a visual drop target only.
+
+**Fix:**
+- At drag start, set `height: 0` (and `overflow: hidden`) on all `.empty-hint` elements so they occupy no space during reflow math.
+- Restore hints on drag end (if the bucket is still empty after drop).
+- In `applyReflow`, empty bucket slots no longer displace surrounding rows.
+- Snap math for drops into empty buckets: use the hint element's pre-drag rect (captured at drag start before height is zeroed) as the destination position, so the tile lands cleanly where the placeholder was.
+
+**Result:** During drag, the list looks like `[ task 1, soon header, task 2 (tile), later ]` -- no phantom placeholder shifting around.
+
+### 3. iPhone test pass
+
+- Tune any timings that feel off on real hardware.
+- Check heat-map color transitions after reorder -- if the instant snap is noticeable, address it here.
+- Fix anything else that feels off in daily use.
 
 **Testable state:** Ready for daily use.
 
 Commit: "Phase 12: animation polish."
 
-## Phase 13 (optional): Sync status popover
-
-- Tap status dot reveals a small popover with last sync time, commit SHA of last sync, error details if any.
-- Long-press status dot forces a sync.
-
-Commit: "Phase 13: status popover."
-
 ## Deferred decisions
 
-Tracked here so they don't get lost between phases.
+Tracked here so they don't get lost. Review individually before acting.
 
-- **Completed items sort to the bottom.** Decided during the Phase 1 visual pass. Looked noisier when done items were interleaved with active ones. Should land alongside Phase 4 (reorder logic) or as its own micro-phase before it.
 - **Light theme.** v1 ships dark only. The warm cream page bg fought visually with the bold heat-map rows. Light theme (or alternate palettes) is a v2 concern.
-- **Heat-map color transitions on drop.** Phase 4 wires drag/reorder; the source row snaps into place but per-row heat-map color changes are instant (background-image swap on full re-render). Phase 12 already lists this as polish; pushing the smooth color animation to that phase rather than restructuring rendering now.
-- **Drag snap animation into/out of empty buckets is mediocre.** The snap math correctly lands tiles but the transition lacks visual polish (no reflow feedback when hovering over empty buckets; hint reveal on drop is abrupt). The right fix is making the render function drag-aware: render a "preview" state during drag (source bucket shows hint, target bucket shows source row ghost) so the snap animation is just a position correction rather than a layout change. This is a meaningful refactor of the drag/render split and belongs in Phase 12 polish.
-- **Pull-to-add while actively editing a row is unreliable.** The `tryUnlock` path (blur the active input, then start the pull) works correctly in isolation, but a quick touch on the list that both arms the pull AND triggers a row tap causes the pull to end with `locked: true` before it can commit. Root cause: `pointerup` (which fires `onTap → startEdit`) runs before `touchend` (which runs pull cleanup), so editing state is set mid-gesture. Logged and deferred to Phase 12 polish.
 
 ## Verification points where Jonathan should check in
 
@@ -189,8 +212,12 @@ Tracked here so they don't get lost between phases.
 
 ## Bug / task backlog
 - A way to clear all the completed tasks
-- Task notes
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
-- Time estimates
 - Menu scrim doesn't extend to the top of the screen on iOS (status bar area stays the app's red theme-color instead of matching the scrim).
 - Shake to undo: undo stack in state.ts (snapshot before each mutation, capped depth), undo() restores last snapshot, shake detection via DeviceMotionEvent, iOS 13+ requires permission via a user gesture (surface in status panel), brief "Undone" toast as feedback. Sync-incoming changes should not be pushed onto the undo stack.
+- Cannot drag an item into an empty Later list. It just moves to the top of the Today list
+- Creating a new Later item takes multiple taps - first creates a blank cell, the second actually gets it into edit mode.
+- Dragging something down from an upper section to a lower section yields one of those animation snap bugs. I'm seeing this with a Today -> Later move.
+- Dragging something up to Today makes it the first item even if I'm making it a later item.
+
+Note: task notes and time estimates are tracked in docs/future.md (v2.2 and v1.2).
