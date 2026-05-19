@@ -131,6 +131,10 @@ body {
   -webkit-user-select: none;
 }
 
+.bucket-header[data-bucket="today"] .bucket-header-title {
+  font-size: 15px;
+}
+
 .bucket-header-build {
   position: absolute;
   right: var(--row-padding-x);

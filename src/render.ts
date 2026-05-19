@@ -47,6 +47,19 @@ let swipeActive = false;
 let lastDragEnd = 0;
 let lastFocusTime = 0;
 let openSyncDebug: (() => void) | null = null;
+let savedListBg = '';
+
+function clearListGradient(): void {
+  if (!listEl) return;
+  if (!savedListBg) savedListBg = listEl.style.backgroundImage;
+  listEl.style.backgroundImage = 'none';
+}
+
+function restoreListGradient(): void {
+  if (!listEl || !savedListBg) return;
+  listEl.style.backgroundImage = savedListBg;
+  savedListBg = '';
+}
 
 const FLY_COMPLETE_MS = 220;
 
@@ -112,6 +125,8 @@ function buildShell(mount: HTMLElement): void {
     (active) => {
       console.log('[pull:setPullActive]', active, 'editingId:', editingId?.slice(-4) ?? 'null');
       pullActive = active;
+      if (active) clearListGradient();
+      else restoreListGradient();
     },
     () => {
       const el = document.activeElement as HTMLElement | null;
@@ -134,21 +149,29 @@ function scheduleRender(): void {
 function render(): void {
   if (!listEl || collapseActive || swipeActive) return;
 
-  // Position map covers only active items + bucket headers (done items use CSS color).
+  // Position map covers active items + bucket headers + empty-hint placeholders.
+  // Empty hints reserve a position so they carry their own background color and don't
+  // rely on the (sometimes stale) list gradient showing through during animations.
   const headerPos: Record<Bucket, number> = { today: 0, soon: 0, later: 0 };
+  const hintPos: Record<Bucket, number> = { today: -1, soon: -1, later: -1 };
   const itemPos = new Map<string, number>();
   let cursor = 0;
   for (const bucket of BUCKET_ORDER) {
     headerPos[bucket] = cursor++;
-    for (const item of bucketItems(bucket).filter((i) => !i.done)) {
-      itemPos.set(item.id, cursor++);
+    const items = bucketItems(bucket).filter((i) => !i.done);
+    if (items.length === 0) {
+      hintPos[bucket] = cursor++;
+    } else {
+      for (const item of items) {
+        itemPos.set(item.id, cursor++);
+      }
     }
   }
   const total = cursor;
 
   const next = document.createDocumentFragment();
   for (const bucket of BUCKET_ORDER) {
-    next.appendChild(renderBucket(bucket, headerPos[bucket], itemPos, total));
+    next.appendChild(renderBucket(bucket, headerPos[bucket], hintPos[bucket], itemPos, total));
   }
   const doneItems = allDoneItems();
   if (doneItems.length > 0) {
@@ -156,6 +179,7 @@ function render(): void {
   }
   listEl.replaceChildren(next);
   listEl.style.backgroundImage = `linear-gradient(to bottom, ${colorForPosition(0, total)}, ${colorForPosition(total - 1, total)})`;
+  savedListBg = '';
   // Constrain gradient to content height so empty space below last item stays black.
   const contentH = Array.from(listEl.children).reduce((h, el) => h + (el as HTMLElement).offsetHeight, 0);
   listEl.style.backgroundRepeat = 'no-repeat';
@@ -196,6 +220,7 @@ function render(): void {
 function renderBucket(
   bucket: Bucket,
   headerPosition: number,
+  hintPosition: number,
   itemPos: Map<string, number>,
   total: number,
 ): HTMLElement {
@@ -211,6 +236,9 @@ function renderBucket(
     const hint = document.createElement('div');
     hint.className = 'empty-hint';
     hint.textContent = EMPTY_HINTS[bucket];
+    if (hintPosition >= 0) {
+      hint.style.backgroundColor = colorForPosition(hintPosition, total);
+    }
     section.appendChild(hint);
     return section;
   }
@@ -308,7 +336,22 @@ function renderInput(item: Item): HTMLInputElement {
   input.value = item.text;
   input.autocomplete = 'off';
   input.spellcheck = false;
+  input.setAttribute('autocapitalize', 'sentences');
   input.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  if (item.text === '') {
+    input.addEventListener('input', () => {
+      if (input.value.length >= 1) {
+        const first = input.value[0]!;
+        const upper = first.toUpperCase();
+        if (first !== upper) {
+          const pos = input.selectionStart ?? 1;
+          input.value = upper + input.value.slice(1);
+          input.setSelectionRange(pos, pos);
+        }
+      }
+    }, { once: true });
+  }
 
   let cancelled = false;
   let didInteract = false;
@@ -700,6 +743,9 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     ghostHintEl.style.alignItems = 'center';
     ghostHintEl.style.zIndex = '10';
     ghostHintEl.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
+    const sourceHeader = listEl.querySelector<HTMLElement>(`.bucket-header[data-bucket="${sourceBucket}"]`);
+    const headerBg = sourceHeader?.style.backgroundColor;
+    if (headerBg) ghostHintEl.style.backgroundColor = headerBg;
     row.appendChild(ghostHintEl);
   }
   for (const r of allRows) {
@@ -1022,10 +1068,15 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
       bucketItems(target.bucket as Bucket).filter((i) => !i.done).length === 0;
     if (targetBucketIsEmpty && sourceItems.length > 1) {
       const h = row.offsetHeight;
+      // Carry the row-content's heat-map color onto the layout row so the collapsing
+      // slot shows that color instead of the cleared list gradient (black).
+      const contentBg = sourceContent?.style.backgroundImage;
+      if (contentBg) row.style.backgroundImage = contentBg;
       row.style.height = `${h}px`;
       void row.offsetHeight;
       row.style.transition = `height ${DRAG_SNAP_MS}ms ease`;
       row.style.height = '0';
+      clearListGradient();
     }
 
     window.setTimeout(() => {

@@ -267,8 +267,8 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
   function commitDelete(pointerId: number): void {
     callbacks.setSwipeActive(true);
     release(pointerId);
-    // Clear swipe state so action layers hide
-    row.classList.remove('show-complete', 'show-delete', 'past-threshold');
+    // Keep show-delete so the dark action layer stays visible behind the flying tile.
+    row.classList.remove('show-complete', 'past-threshold');
     row.style.overflow = 'visible';
     pastThreshold = false;
     // Fly tile off screen to the left from its current rubber-banded position
