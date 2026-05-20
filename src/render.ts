@@ -182,6 +182,7 @@ function render(): void {
   }
   listEl.replaceChildren(next);
   listEl.style.backgroundImage = `linear-gradient(to bottom, ${colorForPosition(0, total)}, ${colorForPosition(total - 1, total)})`;
+  listEl.style.backgroundColor = colorForPosition(0, total);
   savedListBg = '';
   // Constrain gradient to content height so empty space below last item stays black.
   const contentH = Array.from(listEl.children).reduce((h, el) => h + (el as HTMLElement).offsetHeight, 0);
