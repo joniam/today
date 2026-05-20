@@ -103,6 +103,7 @@ export function initNoteSheet(mount: HTMLElement): (item: Item) => void {
   function close(): void {
     resetDelete();
     backdrop.classList.remove('open');
+    document.documentElement.classList.remove('sheet-open');
     currentItemId = null;
     if (themeColorMeta) themeColorMeta.setAttribute('content', defaultThemeColor);
   }
@@ -144,6 +145,7 @@ export function initNoteSheet(mount: HTMLElement): (item: Item) => void {
     textarea.value = item.notes ?? '';
     deleteBtn.style.display = item.notes ? '' : 'none';
     backdrop.classList.add('open');
+    document.documentElement.classList.add('sheet-open');
     if (themeColorMeta) themeColorMeta.setAttribute('content', '#0a0a0a');
     requestAnimationFrame(() => textarea.focus());
   };
