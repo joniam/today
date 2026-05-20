@@ -122,7 +122,6 @@ export function initSyncDebug(mount: HTMLElement): () => void {
 
   function close(): void {
     backdrop.classList.remove('open');
-    document.documentElement.classList.remove('sheet-open');
     if (refreshInterval !== null) { clearInterval(refreshInterval); refreshInterval = null; }
     if (themeColorMeta) themeColorMeta.setAttribute('content', defaultThemeColor);
     logStatusBarPaint('sync-debug:close');
@@ -139,7 +138,6 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     checkForUpdate();
     refresh();
     backdrop.classList.add('open');
-    document.documentElement.classList.add('sheet-open');
     refreshInterval = setInterval(refresh, 2000);
     if (themeColorMeta) themeColorMeta.setAttribute('content', '#0a0a0a');
     requestAnimationFrame(() => logStatusBarPaint('sync-debug:open'));

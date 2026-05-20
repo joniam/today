@@ -17,6 +17,7 @@ export function applyUpdate(): void {
 }
 
 export function initPwa(): void {
+  tryLockOrientation();
   if (!('serviceWorker' in navigator)) return;
   if (import.meta.env.DEV) return;
 
@@ -49,5 +50,19 @@ export function initPwa(): void {
   // Reload all tabs when the new SW takes over.
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
+  });
+}
+
+// The manifest orientation property is honored by Android but ignored by
+// iOS PWAs. screen.orientation.lock() is the only path that has any chance
+// on iOS, and it requires standalone display mode. The Promise rejects
+// silently when not supported.
+function tryLockOrientation(): void {
+  const orientation = screen.orientation as ScreenOrientation & {
+    lock?: (orientation: 'portrait' | 'landscape' | 'natural' | 'any') => Promise<void>;
+  };
+  if (typeof orientation?.lock !== 'function') return;
+  orientation.lock('portrait').catch((err) => {
+    console.log('[orientation] lock rejected:', err?.message ?? err);
   });
 }

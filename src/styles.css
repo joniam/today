@@ -49,15 +49,11 @@ html {
   background-color: hsl(0, 75%, 50%);
 }
 
-/* Toggled by JS when a bottom sheet opens; restores iOS overscroll red on close. */
-html.sheet-open {
-  background-color: #0a0a0a;
-}
-
 /* Paints behind the iOS translucent status bar (the safe-area-inset-top
-   strip). Red at rest so the bar reads as a continuation of the today
-   header; switches to scrim color when a sheet is open so the bar matches
-   the scrim. Sits below sticky headers and below the scrim in z-index. */
+   strip) so it reads as a continuation of the today header. Stays red
+   when a sheet opens; the scrim sits above this in z-order so its 55%
+   black overlays the red — same muddy-red mix the rest of the screen
+   shows through the scrim. */
 body::before {
   content: '';
   position: fixed;
@@ -68,11 +64,6 @@ body::before {
   background-color: hsl(0, 75%, 50%);
   z-index: 1;
   pointer-events: none;
-  transition: background-color 200ms ease;
-}
-
-html.sheet-open body::before {
-  background-color: #0a0a0a;
 }
 
 body {
