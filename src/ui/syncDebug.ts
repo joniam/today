@@ -124,7 +124,6 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     backdrop.classList.remove('open');
     if (refreshInterval !== null) { clearInterval(refreshInterval); refreshInterval = null; }
     if (themeColorMeta) themeColorMeta.setAttribute('content', defaultThemeColor);
-    logStatusBarPaint('sync-debug:close');
   }
 
   function refresh(): void {
@@ -140,40 +139,7 @@ export function initSyncDebug(mount: HTMLElement): () => void {
     backdrop.classList.add('open');
     refreshInterval = setInterval(refresh, 2000);
     if (themeColorMeta) themeColorMeta.setAttribute('content', '#0a0a0a');
-    requestAnimationFrame(() => logStatusBarPaint('sync-debug:open'));
   };
-}
-
-function logStatusBarPaint(label: string): void {
-  const html = document.documentElement;
-  const body = document.body;
-  const cs = getComputedStyle(document.documentElement).getPropertyValue('--safe-top').trim();
-  const safeTopPx = parseFloat(cs) || 0;
-  const probeY = Math.max(1, Math.floor(safeTopPx / 2));
-  const x = Math.floor(window.innerWidth / 2);
-  const elTop = document.elementFromPoint(x, 1);
-  const elMid = document.elementFromPoint(x, probeY);
-  const elBelow = document.elementFromPoint(x, safeTopPx + 1);
-  const desc = (el: Element | null): string =>
-    el ? `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').filter(Boolean).join('.') || '(no-class)'}` : 'null';
-  const bg = (el: Element | null): string => el ? getComputedStyle(el).backgroundColor : 'n/a';
-  console.log(`[scrim-debug:${label}]`, {
-    htmlBg: getComputedStyle(html).backgroundColor,
-    bodyBg: getComputedStyle(body).backgroundColor,
-    appBg: getComputedStyle(document.querySelector('.app')!).backgroundColor,
-    safeTop: cs,
-    probeY,
-    elTop: desc(elTop),
-    elTopBg: bg(elTop),
-    elMid: desc(elMid),
-    elMidBg: bg(elMid),
-    elBelow: desc(elBelow),
-    elBelowBg: bg(elBelow),
-    htmlClasses: html.className,
-    standalone: matchMedia('(display-mode: standalone)').matches,
-    visualViewportHeight: window.visualViewport?.height,
-    innerHeight: window.innerHeight,
-  });
 }
 
 function buildBody(): DocumentFragment {
