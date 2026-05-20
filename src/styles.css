@@ -54,6 +54,27 @@ html.sheet-open {
   background-color: #0a0a0a;
 }
 
+/* Paints behind the iOS translucent status bar (the safe-area-inset-top
+   strip). Red at rest so the bar reads as a continuation of the today
+   header; switches to scrim color when a sheet is open so the bar matches
+   the scrim. Sits below sticky headers and below the scrim in z-index. */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background-color: hsl(0, 75%, 50%);
+  z-index: 1;
+  pointer-events: none;
+  transition: background-color 200ms ease;
+}
+
+html.sheet-open body::before {
+  background-color: #0a0a0a;
+}
+
 body {
   background: var(--bg-page);
   color: var(--fg-page);
