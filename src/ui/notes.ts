@@ -69,7 +69,15 @@ export function initNoteSheet(mount: HTMLElement): (item: Item) => void {
   for (const el of [backdrop, sheet]) {
     el.addEventListener('touchmove', (e) => {
       e.stopPropagation();
-      if (!body.contains(e.target as Node)) e.preventDefault();
+      // Allow native scroll only on the textarea itself; prevent everything else
+      // (including textarea boundary rubber-band) from reaching the list.
+      if (e.target !== textarea) {
+        e.preventDefault();
+      } else {
+        const atTop = textarea.scrollTop <= 0;
+        const atBottom = textarea.scrollTop + textarea.clientHeight >= textarea.scrollHeight - 1;
+        if (atTop || atBottom) e.preventDefault();
+      }
     }, { passive: false });
   }
 

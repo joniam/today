@@ -835,6 +835,7 @@ body {
   padding: 12px 14px;
   resize: none;
   outline: none;
+  overscroll-behavior: contain;
   -webkit-appearance: none;
   appearance: none;
 }
