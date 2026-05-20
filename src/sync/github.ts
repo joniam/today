@@ -13,6 +13,7 @@ export async function getFile(
 ): Promise<GitHubFile> {
   const res = await fetch(`${API}/repos/${owner}/${repo}/contents/${path}`, {
     headers: githubHeaders(token),
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`GitHub GET failed: ${res.status}`);
   const json = await res.json() as { content: string; sha: string };
