@@ -127,6 +127,15 @@ export function editItem(id: string, text: string): void {
   notify();
 }
 
+export function editItemNotes(id: string, notes: string): void {
+  const item = state.items.find((i) => i.id === id);
+  if (!item) return;
+  const normalized = notes.trim() || undefined;
+  if (item.notes === normalized) return;
+  item.notes = normalized;
+  notify();
+}
+
 export function toggleDone(id: string): void {
   const item = state.items.find((i) => i.id === id);
   if (!item) return;

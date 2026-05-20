@@ -6,6 +6,7 @@ export interface Item {
   done: boolean;
   bucket: Bucket;
   order: number;
+  notes?: string;
 }
 
 export interface DataRepo {

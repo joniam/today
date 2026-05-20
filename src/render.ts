@@ -1,6 +1,7 @@
 import { attachRowGestures, initPullToAdd } from './gestures';
 import { initFirstRun } from './ui/settings';
 import { initSyncDebug } from './ui/syncDebug';
+import { initNoteSheet } from './ui/notes';
 import { getSyncStatus } from './ui/statusDot';
 import {
   addItem,
@@ -47,6 +48,7 @@ let swipeActive = false;
 let lastDragEnd = 0;
 let lastFocusTime = 0;
 let openSyncDebug: (() => void) | null = null;
+let openNoteSheet: ((item: Item) => void) | null = null;
 let savedListBg = '';
 
 function clearListGradient(): void {
@@ -102,6 +104,7 @@ function buildShell(mount: HTMLElement): void {
 
   initFirstRun(app);
   openSyncDebug = initSyncDebug(app);
+  openNoteSheet = initNoteSheet(app);
 
   mount.appendChild(app);
 
@@ -314,6 +317,23 @@ function renderRow(item: Item, index: number, total: number): HTMLElement {
     text.textContent = item.text;
     content.appendChild(text);
   }
+
+  if (item.notes && editingId !== item.id) {
+    const noteBtn = document.createElement('button');
+    noteBtn.type = 'button';
+    noteBtn.className = 'note-indicator';
+    noteBtn.setAttribute('aria-label', 'View note');
+    noteBtn.innerHTML =
+      '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="3" y="4" width="14" height="2" rx="1"/><rect x="3" y="9" width="10" height="2" rx="1"/><rect x="3" y="14" width="7" height="2" rx="1"/></svg>';
+    // Stop propagation so the gesture system never sees this pointerdown.
+    noteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    noteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNoteSheet?.(item);
+    });
+    content.appendChild(noteBtn);
+  }
+
   row.appendChild(content);
 
   if (editingId !== item.id) {

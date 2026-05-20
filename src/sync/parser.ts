@@ -4,6 +4,9 @@ import { BUCKET_ORDER } from '../state';
 
 const HEADER_REGEX = /^## (Today|Soon|Later|Done)\s*$/;
 const ITEM_REGEX = /^- \[([ xX])\] (.*)$/;
+// Indented note line: one or more tabs (Obsidian) or 2+ spaces, followed by "- ".
+// We strip the indent and bullet marker; notes are stored as plain text lines.
+const NOTE_LINE_REGEX = /^(\t+| {2,})- (.*)$/;
 
 const HEADER_TO_BUCKET: Record<string, Bucket | 'done'> = {
   Today: 'today',
@@ -34,16 +37,27 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
   }
   const usedIds = new Set<string>();
 
-  for (const line of lines) {
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i]!;
+
     const headerMatch = HEADER_REGEX.exec(line);
     if (headerMatch) {
       currentSection = HEADER_TO_BUCKET[headerMatch[1]!] ?? null;
+      i++;
       continue;
     }
-    if (!currentSection) continue;
+
+    if (!currentSection) {
+      i++;
+      continue;
+    }
 
     const itemMatch = ITEM_REGEX.exec(line);
-    if (!itemMatch) continue;
+    if (!itemMatch) {
+      i++;
+      continue;
+    }
 
     const text = itemMatch[2]!;
 
@@ -52,7 +66,6 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
     let order: number;
 
     if (currentSection === 'done') {
-      // Items in ## Done are always done; bucket defaults to today on un-complete.
       bucket = 'today';
       done = true;
       order = doneOrderCounter++;
@@ -61,6 +74,28 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
       done = itemMatch[1] !== ' ';
       order = orderCounters[bucket]++;
     }
+
+    // Collect indented note lines immediately following this task line.
+    const noteLines: string[] = [];
+    let j = i + 1;
+    while (j < lines.length) {
+      const nextLine = lines[j]!;
+      // Stop at headers, task lines, or non-indented content.
+      if (HEADER_REGEX.test(nextLine) || ITEM_REGEX.test(nextLine)) break;
+      const noteMatch = NOTE_LINE_REGEX.exec(nextLine);
+      if (!noteMatch) {
+        // Allow blank lines between note blocks to be skipped.
+        if (nextLine.trim() === '') {
+          j++;
+          continue;
+        }
+        break;
+      }
+      // Group 2 is the plain text after the bullet marker.
+      noteLines.push(noteMatch[2]!);
+      j++;
+    }
+    i = j;
 
     const key = `${bucket}:${normalize(text)}:${done}`;
     const existing_item = existingMap.get(key);
@@ -72,7 +107,8 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
       id = ulid();
     }
 
-    parsed.push({ id, text, done, bucket, order });
+    const notes = noteLines.length > 0 ? noteLines.join('\n') : undefined;
+    parsed.push({ id, text, done, bucket, order, notes });
   }
 
   return parsed;
@@ -90,6 +126,11 @@ export function serializeMarkdown(items: Item[]): string {
     const lines = [`## ${label}`];
     for (const item of bucketItems) {
       lines.push(`- [ ] ${item.text}`);
+      if (item.notes) {
+        for (const noteLine of item.notes.split('\n')) {
+          lines.push(`\t- ${noteLine}`);
+        }
+      }
     }
     sections.push(lines.join('\n'));
   }
@@ -99,6 +140,11 @@ export function serializeMarkdown(items: Item[]): string {
     const lines = ['## Done'];
     for (const item of doneItems) {
       lines.push(`- [x] ${item.text}`);
+      if (item.notes) {
+        for (const noteLine of item.notes.split('\n')) {
+          lines.push(`\t- ${noteLine}`);
+        }
+      }
     }
     sections.push(lines.join('\n'));
   }
