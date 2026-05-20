@@ -233,6 +233,8 @@ async function attemptOutbound(
       isMerge = true;
     }
 
+    console.log('[engine:outbound] pushing', itemsToPush.length, 'items,',
+      itemsToPush.filter(i => i.notes).length, 'with notes, tail:', contentToPush.includes('\n\n') ? 'yes' : 'no');
     const result = await putFile(
       token, owner, repo, path, contentToPush, remote.sha,
       `update from today app @ ${new Date().toISOString()}`,

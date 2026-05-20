@@ -39,6 +39,8 @@ export async function loadState(): Promise<void> {
     state.items = saved.items.map((i) => ({ ...i }));
     // baseItems was added in Phase 9; old saves won't have it.
     state.baseItems = ((saved.baseItems as typeof saved.baseItems | undefined) ?? []).map((i) => ({ ...i }));
+    // tail was added later; old saves won't have it.
+    state.tail = (saved as typeof saved & { tail?: string }).tail ?? '';
     state.lastSyncedSha = saved.lastSyncedSha;
     state.lastSyncedAt = saved.lastSyncedAt;
     state.pendingChanges = saved.pendingChanges;
