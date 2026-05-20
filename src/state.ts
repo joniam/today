@@ -5,6 +5,7 @@ import { scheduleSave } from './sync/storage';
 export const state: AppState = {
   items: [],
   baseItems: [],
+  tail: '',
   lastSyncedSha: null,
   lastSyncedAt: null,
   pendingChanges: false,
@@ -34,13 +35,14 @@ function notifyFromSync(): void {
   scheduleSave();
 }
 
-export function applySyncResult(sha: string, items: Item[]): void {
+export function applySyncResult(sha: string, items: Item[], tail: string): void {
   state.lastSyncedSha = sha;
   state.lastSyncedAt = Date.now();
   // Deep copy both arrays so in-place mutations to state.items don't corrupt baseItems.
   state.baseItems = items.map((i) => ({ ...i }));
   state.pendingChanges = false;
   state.items = items.map((i) => ({ ...i }));
+  state.tail = tail;
   notifyFromSync();
 }
 

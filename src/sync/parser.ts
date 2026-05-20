@@ -19,16 +19,22 @@ function normalize(text: string): string {
   return text.trim().toLowerCase();
 }
 
+export interface ParseResult {
+  items: Item[];
+  tail: string; // everything after the last structural line, preserved verbatim
+}
+
 /**
- * Parse markdown to items. Existing items are passed so IDs can be preserved
+ * Parse markdown to items + tail. Existing items are passed so IDs can be preserved
  * by matching on (bucket, normalized_text, done).
  */
-export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
+export function parseMarkdown(markdown: string, existing: Item[] = []): ParseResult {
   const lines = markdown.split('\n');
   let currentSection: Bucket | 'done' | null = null;
   const orderCounters: Record<Bucket, number> = { today: 1, soon: 1, later: 1 };
   let doneOrderCounter = 1;
   const parsed: Item[] = [];
+  let lastStructuralIdx = -1;
 
   // Build a lookup of existing items for ID preservation.
   const existingMap = new Map<string, Item>();
@@ -44,6 +50,7 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
     const headerMatch = HEADER_REGEX.exec(line);
     if (headerMatch) {
       currentSection = HEADER_TO_BUCKET[headerMatch[1]!] ?? null;
+      lastStructuralIdx = i;
       i++;
       continue;
     }
@@ -60,6 +67,7 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
     }
 
     const text = itemMatch[2]!;
+    lastStructuralIdx = i;
 
     let bucket: Bucket;
     let done: boolean;
@@ -80,7 +88,7 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
     let j = i + 1;
     while (j < lines.length) {
       const nextLine = lines[j]!;
-      // Stop at headers, task lines, or non-indented content.
+      // Stop at headers or task lines.
       if (HEADER_REGEX.test(nextLine) || ITEM_REGEX.test(nextLine)) break;
       const noteMatch = NOTE_LINE_REGEX.exec(nextLine);
       if (!noteMatch) {
@@ -93,6 +101,7 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
       }
       // Group 2 is the plain text after the bullet marker.
       noteLines.push(noteMatch[2]!);
+      lastStructuralIdx = j;
       j++;
     }
     i = j;
@@ -111,10 +120,17 @@ export function parseMarkdown(markdown: string, existing: Item[] = []): Item[] {
     parsed.push({ id, text, done, bucket, order, notes });
   }
 
-  return parsed;
+  // Everything after the last structural line is the tail (freeform scratchpad).
+  const tailLines = lines.slice(lastStructuralIdx + 1);
+  // Trim leading blank lines so a single trailing newline after the last task
+  // doesn't produce a non-empty tail.
+  while (tailLines.length > 0 && tailLines[0]!.trim() === '') tailLines.shift();
+  const tail = tailLines.join('\n');
+
+  return { items: parsed, tail };
 }
 
-export function serializeMarkdown(items: Item[]): string {
+export function serializeMarkdown(items: Item[], tail = ''): string {
   const sections: string[] = [];
 
   for (const bucket of BUCKET_ORDER) {
@@ -149,5 +165,7 @@ export function serializeMarkdown(items: Item[]): string {
     sections.push(lines.join('\n'));
   }
 
-  return sections.join('\n\n') + '\n';
+  let result = sections.join('\n\n') + '\n';
+  if (tail) result += '\n' + tail + (tail.endsWith('\n') ? '' : '\n');
+  return result;
 }

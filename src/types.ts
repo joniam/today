@@ -18,6 +18,7 @@ export interface DataRepo {
 export interface AppState {
   items: Item[];
   baseItems: Item[];   // items at lastSyncedSha, used as merge base
+  tail: string;        // unstructured content after the task sections, preserved verbatim
   lastSyncedSha: string | null;
   lastSyncedAt: number | null;
   pendingChanges: boolean;

@@ -112,27 +112,27 @@ async function runInbound(): Promise<void> {
       return;
     }
 
-    const remoteItems = parseMarkdown(remote.content, state.items);
+    const { items: remoteItems, tail: remoteTail } = parseMarkdown(remote.content, state.items);
     // On first-ever sync (no lastSyncedSha), always merge so local items survive.
     const shouldMerge = state.pendingChanges || state.lastSyncedSha === null;
     console.log('[engine:inbound] shouldMerge:', shouldMerge, '(pendingChanges:', state.pendingChanges, ', firstSync:', state.lastSyncedSha === null, ')');
 
     if (!shouldMerge) {
       console.log('[engine:inbound] replacing local with remote —', remoteItems.length, 'items');
-      applySyncResult(remote.sha, remoteItems);
+      applySyncResult(remote.sha, remoteItems, remoteTail);
       logEvent('inbound', 'ok', `replaced local — ${remoteItems.length} items, sha ${remote.sha.slice(0, 7)}`);
       setSyncStatus('ok');
     } else {
       const merged = mergeItems(state.baseItems, state.items, remoteItems);
       console.log('[engine:inbound] merged result:', merged.length, 'items — pushing');
-      const mergedMarkdown = serializeMarkdown(merged);
+      const mergedMarkdown = serializeMarkdown(merged, remoteTail);
       const result = await putFile(
         token, owner, repo, path,
         mergedMarkdown, remote.sha,
         `update from today app @ ${new Date().toISOString()}`,
       );
       console.log('[engine:inbound] push ok, new sha:', result.sha.slice(0, 7));
-      applySyncResult(result.sha, merged);
+      applySyncResult(result.sha, merged, remoteTail);
       logEvent('inbound', 'ok', `merged and pushed — ${merged.length} items, sha ${result.sha.slice(0, 7)}`);
       setSyncStatus('ok');
     }
@@ -163,8 +163,8 @@ async function runOutbound(): Promise<void> {
   }
 
   const currentItems = state.items.map((i) => ({ ...i }));
-  const currentMarkdown = serializeMarkdown(currentItems);
-  const baseMarkdown = serializeMarkdown(state.baseItems);
+  const currentMarkdown = serializeMarkdown(currentItems, state.tail);
+  const baseMarkdown = serializeMarkdown(state.baseItems, state.tail);
   if (currentMarkdown === baseMarkdown) {
     if (state.pendingChanges) {
       // Net-zero change: mutations cancelled each other out (e.g. add then cancel).
@@ -218,15 +218,17 @@ async function attemptOutbound(
     let contentToPush: string;
     let itemsToPush: Item[];
     let isMerge = false;
+    let remoteTail: string | undefined;
 
     if (remote.sha === state.lastSyncedSha) {
       contentToPush = currentMarkdown;
       itemsToPush = currentItems;
     } else {
       console.log('[engine:outbound] remote changed since last sync — merging before push');
-      const remoteItems = parseMarkdown(remote.content, state.items);
-      const merged = mergeItems(state.baseItems, state.items, remoteItems);
-      contentToPush = serializeMarkdown(merged);
+      const parsed = parseMarkdown(remote.content, state.items);
+      remoteTail = parsed.tail;
+      const merged = mergeItems(state.baseItems, state.items, parsed.items);
+      contentToPush = serializeMarkdown(merged, remoteTail);
       itemsToPush = merged;
       isMerge = true;
     }
@@ -240,9 +242,9 @@ async function attemptOutbound(
     // async push by only updating baseItems. For a merge, applySyncResult so that
     // remote-added items appear locally.
     if (isMerge) {
-      applySyncResult(result.sha, itemsToPush);
+      applySyncResult(result.sha, itemsToPush, remoteTail ?? state.tail);
     } else {
-      const isPending = serializeMarkdown(state.items) !== serializeMarkdown(itemsToPush);
+      const isPending = serializeMarkdown(state.items, state.tail) !== serializeMarkdown(itemsToPush, state.tail);
       applyOutboundResult(result.sha, itemsToPush, isPending);
       if (isPending) scheduleOutbound();
     }
