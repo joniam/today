@@ -1026,6 +1026,13 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
           finalDy = target.flatIdx < allRows.length
             ? originalRowTops[target.flatIdx]! - sourceRect.top
             : originalRowBottoms[target.flatIdx - 1]! - sourceRect.top;
+        } else if (target.indexInBucket === 0 && tgtBktIdx > srcBucketIdx) {
+          // Target is the first row of a bucket below source. allRows[target.flatIdx - 1]
+          // is in a different bucket with a header between, so the "one row-height above
+          // target slot" shortcut doesn't hold (it would land sourceContent at the top
+          // of the target bucket's header instead of its first row). Source bucket
+          // shrinks by sourceHeight on re-render, pulling target row up by that amount.
+          finalDy = originalRowTops[target.flatIdx]! - sourceHeight - sourceRect.top;
         } else {
           // Source bucket shrinks on re-render, pulling rows below it up by sourceHeight.
           // Item lands at originalRowTops[target.flatIdx - 1] (one row-height above target slot).
