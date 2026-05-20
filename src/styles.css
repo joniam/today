@@ -47,6 +47,15 @@ body {
 
 html {
   background-color: hsl(0, 75%, 50%);
+  transition: background-color 200ms ease;
+}
+
+/* When a bottom sheet is open, switch the html bg to dark so the iOS
+   safe-area-top region (where html leaks through behind the translucent
+   status bar / overscroll) reads as the scrim color instead of red. */
+html:has(.sync-debug-backdrop.open),
+html:has(.note-sheet-backdrop.open) {
+  background-color: #0a0a0a;
 }
 
 body {
