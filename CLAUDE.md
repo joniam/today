@@ -176,7 +176,7 @@ Runs a mode state machine on the row's pointer events: `idle → tracking → sw
   - If movement exceeds 8px in any direction, cancels the long-press timer.
   - If `|dy| > |dx|` and `|dy| > 8px`: enters `scroll` mode, stops tracking (lets the browser scroll).
   - If `|dx| > 8px`: enters `swipe` mode, calls `setPointerCapture` to track outside element bounds.
-  - In `swipe` mode: calls `applyVisualForDx(dx)` every frame. When `|dx| > 70px (SWIPE_THRESHOLD_PX)`, locks `.row-content` at ±70px, adds `past-threshold` class, fires a 10ms vibration. When falling back below threshold, removes `past-threshold`, fires [3,3,3] vibration.
+  - In `swipe` mode: calls `applyVisualForDx(dx)` every frame. When `|dx| > 70px (SWIPE_THRESHOLD_PX)`, locks `.row-content` at ±70px, adds `past-threshold` class. When falling back below threshold, removes `past-threshold`.
 - `pointerup`:
   - `tracking` mode within 400ms: fires `onTap()`.
   - `swipe` mode past threshold: fires `onCompleteCommit()` or `onDeleteCommit()`.
@@ -193,7 +193,7 @@ On entry:
 3. Snapshots `allRows`, `allHeaders`, `originalRowTops`, `originalRowBottoms` from live DOM. These snapshots are never refreshed during the drag.
 4. Builds a `DragSlot[]` array. Each slot represents a valid drop position: `{ bucket, indexInBucket, flatIdx, midY }`. `flatIdx` counts row elements only (headers excluded). `midY` is the viewport Y coordinate used for hit-testing.
 5. Adjusts all slot `midY` values by ±halfH around the source row's center, so the user has to move the tile's center past each boundary to trigger a slot change. Exception: cross-bucket slots that share `sourceFlatIdx` (the "end of previous bucket" and "start of this bucket" positions adjacent to the source) skip the adjustment because their natural `midY` falls in the header gap.
-6. Applies the lift animation to `.row-content` (scale 1.06, `box-shadow` transition), sets `transform` transitions on all non-source rows and all headers, fires a 15ms vibration.
+6. Applies the lift animation to `.row-content` (scale 1.06, `box-shadow` transition), sets `transform` transitions on all non-source rows and all headers.
 
 On `pointermove`:
 1. Updates `.row-content` transform to `translate(dx, dy) scale(1.06)`, following the pointer directly with no easing.
@@ -241,7 +241,6 @@ On `pointerup` / `pointercancel`:
 
 **`contextmenu` is suppressed on all rows.** `row.addEventListener('contextmenu', (e) => e.preventDefault())` in `gestures.ts` prevents the browser's long-press context menu from appearing and competing with the long-press drag trigger on mobile.
 
-**Haptic feedback pattern:** long-press start = 15ms; swipe crosses threshold = 10ms; swipe falls back below threshold = [3,3,3] (triple pulse). Haptics are always wrapped in try/catch because `navigator.vibrate` is not available on iOS.
 
 **`allRows[target.flatIdx]` may not be in `target.bucket`.** When a bucket is empty, its slot's `flatIdx` equals the `flatCursor` value at that point, which also indexes the first row of the next non-empty bucket. Any code that uses `allRows[target.flatIdx]` to get layout info must guard with `allRows[target.flatIdx].closest('.bucket').dataset.bucket === target.bucket` before trusting the element. Use the bucket's `.empty-hint` rect instead when the check fails.
 

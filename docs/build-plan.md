@@ -198,13 +198,22 @@ Commit: "Phase 11: PWA polish."
 Commit: "Phase 12: animation polish."
 
 ## Bug / task backlog
-- A way to clear all the completed tasks
+### Features
 - A divider line in the md file where I can put arbitrary notes that aren't part of the mobile UI
+- Shake to undo: undo stack in state.ts (snapshot before each mutation, capped depth), undo() restores last snapshot, shake detection via DeviceMotionEvent, iOS 13+ requires permission via a user gesture (surface in status panel), brief "Undone" toast as feedback. Sync-incoming changes should not be pushed onto the undo stack. Useful feature because it's relatively easy to accidentally delete or change something important, particularly if I have notes and stuff.
+- Try iOS haptics using this library - https://tijnjh-ios-haptics.mintlify.app/ (consider whether to use the library or just directly code it into my app)
+- Notes - tasks should be able to have notes, with more details. Visually, in the Today app, this should have some sort of visual indicator, subtle, right aligned. When tapping on it, it opens the note UI. From there you can edit, save, delete. Within the document structure, notes is a bullet under the main task and itself can have sub bullets (these render as bullets in the note).
+
+### Bugs
+- Tap to add doesn't work. On desktop, it first creates a blank cell, the second actually gets it into edit mode. On mobile it seems to dismiss the keyboard and not even allow text entry. Focus on the desktop fix, I'll confirm whether that also fixes mobile.
+- Dragging something down from an upper section to a lower section yields one of those animation snap bugs. I'm seeing this with a Today -> Later move. Here's what's happening - on drop, the item animates to top align with the later header. Then it redraws into the right spot. This only happens when attempting to drop into the top of the later list.
+
+
+### Nits
 - Menu scrim doesn't extend to the top of the screen on iOS (status bar area stays the app's red theme-color instead of matching the scrim).
-- Shake to undo: undo stack in state.ts (snapshot before each mutation, capped depth), undo() restores last snapshot, shake detection via DeviceMotionEvent, iOS 13+ requires permission via a user gesture (surface in status panel), brief "Undone" toast as feedback. Sync-incoming changes should not be pushed onto the undo stack.
-- Cannot drag an item into an empty Later list. It just moves to the top of the Today list
-- Creating a new Later item takes multiple taps - first creates a blank cell, the second actually gets it into edit mode.
-- Dragging something down from an upper section to a lower section yields one of those animation snap bugs. I'm seeing this with a Today -> Later move.
-- Dragging something up to Today makes it the first item even if I'm making it a later item.
+- Still seeing white background on launching the PWA. Since this is locally stored now, I'd like a better loading state if possible - The red today header and black body would be ideal that then populates with the real UI.
+- The yellow blinking dot indicating there's a software update didn't blink indefinitely until I updated. Just keep it going so I don't miss it.
+
+
 
 Note: task notes and time estimates are tracked in docs/future.md (v2.2 and v1.2).

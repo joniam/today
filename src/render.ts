@@ -141,7 +141,10 @@ function buildShell(mount: HTMLElement): void {
 }
 
 function scheduleRender(): void {
-  if (dragActive || pullActive || collapseActive || swipeActive) return;
+  if (dragActive || pullActive || collapseActive || swipeActive) {
+    console.log('[scheduleRender:blocked]', { dragActive, pullActive, collapseActive, swipeActive });
+    return;
+  }
   if (rafId !== null) return;
   rafId = requestAnimationFrame(() => {
     rafId = null;
@@ -211,6 +214,7 @@ function render(): void {
     const input = listEl.querySelector<HTMLInputElement>(
       `.row[data-id="${cssEscape(editingId)}"] .row-input`,
     );
+    console.log('[render:focus-check] editingId:', editingId.slice(-4), 'input found:', !!input);
     if (input) {
       console.log('[render:focus]', editingId.slice(-4));
       lastFocusTime = performance.now();
@@ -409,6 +413,7 @@ function renderInput(item: Item): HTMLInputElement {
 
   input.addEventListener('blur', () => {
     const dt = performance.now() - lastFocusTime;
+    console.log('[input:blur]', item.id.slice(-4), 'dt:', dt.toFixed(0), 'ms', 'didInteract:', didInteract, 'text:', JSON.stringify(item.text), 'value:', JSON.stringify(input.value));
     if (!didInteract && item.text === '' && input.value === '' && dt < 300) {
       // iOS auto-blurs inputs focused outside a direct gesture handler.
       console.log('[input:auto-blur] suppressed, dt:', dt.toFixed(0), 'ms');
@@ -434,9 +439,11 @@ function onListClick(e: MouseEvent): void {
   if (hint) {
     const bucketEl = hint.closest<HTMLElement>('.bucket');
     const bucket = bucketEl?.dataset.bucket as Bucket | undefined;
+    console.log('[onListClick:hint]', bucket, 'editingId before:', editingId?.slice(-4) ?? 'null', 'rafId:', rafId);
     if (bucket) {
       const item = addItem('', bucket);
       editingId = item.id;
+      console.log('[onListClick:hint] new editingId:', editingId.slice(-4), 'rafId after addItem:', rafId);
     }
   }
 }
@@ -485,8 +492,9 @@ function cancelEdit(id: string): void {
       rowEl.style.height = '0';
       rowEl.style.opacity = '0';
       window.setTimeout(() => {
+        console.log('[cancelEdit:timeout]', id.slice(-4), 'editingId now:', editingId?.slice(-4) ?? 'null');
         collapseActive = false;
-        editingId = null;
+        if (editingId === id) editingId = null;
         deleteItem(id);
       }, 200);
       return;
@@ -777,7 +785,6 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
     h.style.transition = `transform ${DRAG_REFLOW_MS}ms ease`;
     h.style.willChange = 'transform';
   }
-  vibrate(15);
 
   let lastTargetFlatIdx = sourceFlatIdx;
   let lastTargetBucket: Bucket | 'done' = item.done ? 'done' : sourceBucket;
@@ -1160,13 +1167,6 @@ function startDrag(row: HTMLElement, itemId: string, pointerId: number, startCli
   row.addEventListener('pointercancel', onCancel);
 }
 
-function vibrate(pattern: number | number[]): void {
-  try {
-    (navigator as { vibrate?: (p: number | number[]) => boolean }).vibrate?.(pattern);
-  } catch {
-    /* unsupported */
-  }
-}
 
 function cssEscape(value: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {

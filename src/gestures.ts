@@ -23,17 +23,6 @@ export interface RowGestureCallbacks {
 
 type Mode = 'idle' | 'tracking' | 'swipe' | 'scroll' | 'long-press';
 
-interface VibrateNavigator {
-  vibrate?: (pattern: number | number[]) => boolean;
-}
-
-function vibrate(pattern: number | number[]): void {
-  try {
-    (navigator as VibrateNavigator).vibrate?.(pattern);
-  } catch {
-    /* unsupported */
-  }
-}
 
 export function initPullToAdd(
   container: HTMLElement,
@@ -129,10 +118,8 @@ export function initPullToAdd(
       }
       if (prev < PULL_THRESHOLD_PX && pullDist >= PULL_THRESHOLD_PX) {
         container.classList.add('pull-past-threshold');
-        vibrate(10);
       } else if (prev >= PULL_THRESHOLD_PX && pullDist < PULL_THRESHOLD_PX) {
         container.classList.remove('pull-past-threshold');
-        vibrate([3, 3, 3]);
       }
     }
   }
@@ -198,10 +185,8 @@ export function attachRowGestures(row: HTMLElement, callbacks: RowGestureCallbac
     pastThreshold = value;
     if (value) {
       row.classList.add('past-threshold');
-      vibrate(10);
     } else {
       row.classList.remove('past-threshold');
-      vibrate([3, 3, 3]);
     }
   }
 
