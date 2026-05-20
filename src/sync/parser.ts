@@ -135,7 +135,7 @@ export function serializeMarkdown(items: Item[], tail = ''): string {
 
   for (const bucket of BUCKET_ORDER) {
     const bucketItems = items
-      .filter((i) => i.bucket === bucket && !i.done)
+      .filter((i) => i.bucket === bucket && !i.done && i.text !== '')
       .sort((a, b) => a.order - b.order);
 
     const label = bucket.charAt(0).toUpperCase() + bucket.slice(1);

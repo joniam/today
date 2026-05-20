@@ -443,6 +443,8 @@ function onListClick(e: MouseEvent): void {
     if (bucket) {
       const item = addItem('', bucket);
       editingId = item.id;
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      render();
       console.log('[onListClick:hint] new editingId:', editingId.slice(-4), 'rafId after addItem:', rafId);
     }
   }
@@ -483,7 +485,8 @@ function cancelEdit(id: string): void {
   const item = state.items.find((i) => i.id === id);
   if (item && item.text === '') {
     const rowEl = listEl?.querySelector<HTMLElement>(`.row[data-id="${cssEscape(id)}"]`);
-    if (rowEl) {
+    const bucketWillBeEmpty = bucketItems(item.bucket).filter((i) => !i.done && i.id !== id).length === 0;
+    if (rowEl && !bucketWillBeEmpty) {
       const h = rowEl.offsetHeight;
       rowEl.style.height = `${h}px`;
       void rowEl.offsetHeight;
