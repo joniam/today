@@ -45,6 +45,10 @@ body {
   min-height: 100%;
 }
 
+html {
+  background-color: hsl(0, 75%, 50%);
+}
+
 body {
   background: var(--bg-page);
   color: var(--fg-page);
