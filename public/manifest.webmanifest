@@ -4,6 +4,7 @@
   "start_url": "/today/",
   "scope": "/today/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#1a0e0a",
   "theme_color": "#c0392b",
   "icons": [
