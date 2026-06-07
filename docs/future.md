@@ -89,7 +89,17 @@ The `↗` is the app's visual indicator that notes exist. Tap the task in the ap
 
 **Concerns:** Sync engine becomes multi-file. The "atomic commit" property weakens (notes and task list could go out of sync briefly). Manageable but real.
 
-### v2.3: Graveyard
+### v2.3: Personal and work list toggle
+
+**Why:** Jonathan uses two Obsidian vaults -- a personal vault (`Jonathan`) and a work vault (`mapbox-vault`). A single today list doesn't distinguish between personal and professional tasks.
+
+**Approach:** The app stores a second PAT and data repo path (or a separate `today-data` repo) for the personal list. A toggle in the settings sheet (or a persistent tab/button) switches the active context. Each context has its own `today.md` and syncs independently. The launchd sync job would need a second entry (or a loop) to pull both vaults.
+
+**Open questions:** Single repo with two files (`today-work.md`, `today-personal.md`) vs. two separate repos? Two repos keeps the access tokens cleanly scoped and mirrors the current architecture. Two files in one repo is simpler to implement but muddles the Obsidian vault separation that motivated the split.
+
+**Depends on:** Nothing -- can be built on top of v1 without other prerequisite features.
+
+### v2.4: Graveyard
 
 **Why:** Aspirational tasks that never get done shouldn't stay visible forever.
 

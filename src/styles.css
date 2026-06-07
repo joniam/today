@@ -62,7 +62,7 @@ body::before {
   right: 0;
   height: var(--safe-top);
   background-color: hsl(0, 75%, 50%);
-  z-index: 1;
+  z-index: 6;
   pointer-events: none;
 }
 
