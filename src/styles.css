@@ -67,7 +67,13 @@ body::before {
 }
 
 body {
-  background: var(--bg-page);
+  /* Red at the top so the rubber-band gap above .app matches the Today header;
+     hard-stops to black so bottom overscroll still looks dark. */
+  background: linear-gradient(
+    to bottom,
+    hsl(0, 75%, 50%) calc(var(--safe-top) + 60px),
+    var(--bg-page) calc(var(--safe-top) + 60px)
+  );
   color: var(--fg-page);
   overscroll-behavior-y: none;
 }
@@ -85,6 +91,7 @@ body {
   margin: 0 auto;
   padding-top: var(--safe-top);
   padding-bottom: calc(72px + var(--safe-bottom));
+  background: var(--bg-page);
 }
 
 .pull-row-container {
