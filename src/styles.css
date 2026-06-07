@@ -75,8 +75,8 @@ body {
   background-color: var(--bg-page);
   background-image: linear-gradient(
     to bottom,
-    hsl(0, 75%, 50%) calc(var(--safe-top) + 60px),
-    transparent calc(var(--safe-top) + 60px)
+    hsl(0, 75%, 50%) calc(var(--safe-top) + 50vh),
+    transparent calc(var(--safe-top) + 50vh)
   );
   color: var(--fg-page);
   overscroll-behavior-y: none;
