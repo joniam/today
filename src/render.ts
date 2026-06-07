@@ -73,10 +73,24 @@ window.addEventListener(
   { passive: false },
 );
 
+function syncStatusBarColor(): void {
+  if (!listEl) return;
+  const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0;
+  const headers = Array.from(listEl.querySelectorAll<HTMLElement>('.bucket-header'));
+  // Find the last header whose top edge is at or above the safe-area bottom (i.e. currently pinned).
+  let pinned: HTMLElement | null = null;
+  for (const h of headers) {
+    if (h.getBoundingClientRect().top <= safeTop + 1) pinned = h;
+  }
+  const color = pinned?.style.backgroundColor ?? 'hsl(0, 75%, 50%)';
+  document.documentElement.style.setProperty('--status-bar-color', color);
+}
+
 export function init(mount: HTMLElement): void {
   buildShell(mount);
   subscribe(scheduleRender);
   scheduleRender();
+  document.addEventListener('scroll', syncStatusBarColor, { passive: true });
 }
 
 function buildShell(mount: HTMLElement): void {
@@ -222,6 +236,7 @@ function render(): void {
       input.select();
     }
   }
+  syncStatusBarColor();
 }
 
 function renderBucket(
