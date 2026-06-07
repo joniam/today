@@ -108,16 +108,27 @@ This job only runs while your Mac is awake. If your Mac is asleep or closed, the
 
 For a daily-use todo list this is usually fine. The app is the source of truth on mobile; Obsidian is just a window into the data.
 
+### Configure git identity
+
+The sync script commits on your behalf, so git needs to know who you are. If you haven't already set this globally:
+
+```bash
+git config --global user.email "jonathansherman@gmail.com"
+git config --global user.name "Jonathan Sherman"
+```
+
 ### Create the script
+
+The script is two-way: it commits and pushes any local Obsidian edits first, then pulls remote changes (from the app) down.
 
 ```bash
 mkdir -p ~/bin
 cat > ~/bin/today-sync.sh << 'EOF'
 #!/bin/bash
-# Auto-pulls the today-data repo inside the Obsidian vault.
+# Two-way sync for the today-data repo inside the Obsidian vault.
 # Edit the VAULT_DATA_REPO path below.
 
-VAULT_DATA_REPO="/path/to/your/Jonathan/vault/Today"
+VAULT_DATA_REPO="/path/to/your/vault/Today"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
@@ -128,8 +139,19 @@ if ! cd "$VAULT_DATA_REPO"; then
     log "cd failed: $VAULT_DATA_REPO"
     exit 1
 fi
+
+# Push any local changes (Obsidian edits) up to GitHub first
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    git add -A
+    commit_out=$(git commit -m "obsidian edit @ $(date '+%Y-%m-%d %H:%M:%S')" 2>&1)
+    log "commit: $commit_out"
+    push_out=$(git push 2>&1)
+    log "push: $push_out"
+fi
+
+# Pull any remote changes (app edits) down
 output=$(git pull --rebase 2>&1)
-log "git: $output"
+log "pull: $output"
 log "run finished"
 EOF
 
@@ -385,6 +407,7 @@ The launchd job will pull this into your vault within 30 seconds. Once the app i
   - `fatal: Unable to read current working directory: Operation not permitted` means Full Disk Access wasn't granted to `/bin/bash`. See Step 5.
   - `cd failed` means the path in the script is wrong.
   - Old errors persist in the log file even after fixing. Clear with `> /tmp/today-sync.log; > /tmp/today-sync.err` and watch for fresh entries with current timestamps.
+- **Script logs `fatal: unable to auto-detect email address`.** Git identity not set. Run `git config --global user.email "jonathansherman@gmail.com"` and `git config --global user.name "Jonathan Sherman"`.
 - **The script works manually but not via launchd.** Almost always Full Disk Access. macOS treats launchd-launched processes differently from your interactive shell. Granting FDA to `/bin/bash` fixes it.
 - **TextEdit broke the script.** Smart quotes are the usual culprit. TextEdit menu → Edit → Substitutions → uncheck "Smart Quotes". Then re-edit the script.
 - **Safari Web Inspector doesn't see the phone.** Make sure both Develop menu (Mac) and Web Inspector (phone) are toggled on. Unplug and replug USB. Trust prompt may need re-accepting.
