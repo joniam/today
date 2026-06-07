@@ -73,10 +73,10 @@ Note: we're not cloning `today-data` here. It only needs to live inside your Obs
 
 This is so Obsidian can see `today.md` as part of your vault.
 
-Clone into your personal vault (not your work vault), and rename the folder to `Today` for a nicer Obsidian sidebar entry:
+Clone into your vault and rename the folder to `Today` for a nicer Obsidian sidebar entry:
 
 ```bash
-cd /path/to/your/Jonathan/vault
+cd /path/to/your/vault
 git clone https://github.com/joniam/today-data.git Today
 ```
 
@@ -113,8 +113,8 @@ For a daily-use todo list this is usually fine. The app is the source of truth o
 The sync script commits on your behalf, so git needs to know who you are. If you haven't already set this globally:
 
 ```bash
-git config --global user.email "jonathansherman@gmail.com"
-git config --global user.name "Jonathan Sherman"
+git config --global user.email "your@email.com"
+git config --global user.name "Your Name"
 ```
 
 ### Create the script
@@ -160,7 +160,7 @@ chmod +x ~/bin/today-sync.sh
 
 ### Edit the path
 
-Open the script in TextEdit and replace `/path/to/your/Jonathan/vault/Today` with the real path:
+Open the script in TextEdit and replace `/path/to/your/vault/Today` with the real path:
 
 ```bash
 open -e ~/bin/today-sync.sh
@@ -311,7 +311,7 @@ This works the same way once the app is installed as a PWA to the home screen: j
 
 ## Step 7: Place the docs in the app repo
 
-Copy these five files into your local `today` repo:
+Copy these files into your local `today` repo:
 
 ```
 today/
@@ -319,8 +319,7 @@ today/
 └── docs/
     ├── SETUP.md
     ├── design-spec.md
-    ├── tech-spec.md
-    └── build-plan.md
+    └── tech-spec.md
 ```
 
 Commit and push:
@@ -328,9 +327,9 @@ Commit and push:
 ```bash
 cd ~/Developer/today
 mkdir -p docs
-# Copy the five files into place
+# Copy the files into place
 git add CLAUDE.md docs/
-git commit -m "Add design spec, tech spec, build plan, setup guide, CLAUDE.md"
+git commit -m "Add design spec, tech spec, setup guide, CLAUDE.md"
 git push
 ```
 
@@ -364,17 +363,9 @@ Optional, allow if you have them installed:
 - Access outside the project directory
 - Anything that touches system files
 
-### Kick off the build
+### Working with Claude Code
 
-Once permissions are set, just say to Claude Code:
-
-> Read CLAUDE.md and execute Phase 0 of `docs/build-plan.md`. Stop when Phase 0 is complete and report what you did.
-
-After Phase 0 is done and you've verified, proceed:
-
-> Now execute Phase 1. Stop and report when done.
-
-And so on. The build plan has notes on which phases are good check-in points for you to verify with the actual app before continuing.
+The app is already built. Use Claude Code for ongoing work: bug fixes, new features, or debugging. The specs in `docs/` are the source of truth for intent and architecture.
 
 ---
 
@@ -407,7 +398,7 @@ The launchd job will pull this into your vault within 30 seconds. Once the app i
   - `fatal: Unable to read current working directory: Operation not permitted` means Full Disk Access wasn't granted to `/bin/bash`. See Step 5.
   - `cd failed` means the path in the script is wrong.
   - Old errors persist in the log file even after fixing. Clear with `> /tmp/today-sync.log; > /tmp/today-sync.err` and watch for fresh entries with current timestamps.
-- **Script logs `fatal: unable to auto-detect email address`.** Git identity not set. Run `git config --global user.email "jonathansherman@gmail.com"` and `git config --global user.name "Jonathan Sherman"`.
+- **Script logs `fatal: unable to auto-detect email address`.** Git identity not set. Run `git config --global user.email "your@email.com"` and `git config --global user.name "Your Name"`.
 - **The script works manually but not via launchd.** Almost always Full Disk Access. macOS treats launchd-launched processes differently from your interactive shell. Granting FDA to `/bin/bash` fixes it.
 - **TextEdit broke the script.** Smart quotes are the usual culprit. TextEdit menu → Edit → Substitutions → uncheck "Smart Quotes". Then re-edit the script.
 - **Safari Web Inspector doesn't see the phone.** Make sure both Develop menu (Mac) and Web Inspector (phone) are toggled on. Unplug and replug USB. Trust prompt may need re-accepting.
@@ -427,7 +418,7 @@ The launchd job will pull this into your vault within 30 seconds. Once the app i
 - [ ] Full Disk Access granted to `/bin/bash`
 - [ ] Launchd job loaded, verified pulling with fresh timestamped log entries
 - [ ] Safari Web Inspector enabled on iPhone and Mac
-- [ ] Five docs (CLAUDE.md, SETUP.md, design-spec.md, tech-spec.md, build-plan.md) committed to the `today` repo
+- [ ] Docs (CLAUDE.md, SETUP.md, design-spec.md, tech-spec.md) committed to the `today` repo
 - [ ] Claude Code permissions granted for the `today` directory
 - [ ] Initial `today.md` exists in the data repo with the three empty headers
 - [ ] (Later) `today.md` starred in Obsidian for sidebar visibility

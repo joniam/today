@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A single-list todo app for daily prioritization, inspired by Clear (Realmac Software). Optimized for one user (Jonathan), three fixed buckets (Today / Soon / Later), and sync to a markdown file in an Obsidian vault via GitHub.
+A single-list todo app for daily prioritization, inspired by Clear (Realmac Software). Optimized for one user, three fixed buckets (Today / Soon / Later), and sync to a markdown file in an Obsidian vault via GitHub.
 
 Not a general purpose todo system. Not a competitor to Things, Todoist, OmniFocus. Deliberately scoped to one list, one purpose: what am I focused on today.
 
@@ -20,7 +20,7 @@ Not a general purpose todo system. Not a competitor to Things, Todoist, OmniFocu
 
 Single scrolling column. Full width on mobile, max-width container centered on desktop (around 500px feels right, refine in build).
 
-Top: the Today section header sits flush at the top (under the safe-area inset). No separate status bar in the chrome; sync status surfaces in the settings sheet only (see Phase 10 of the build plan).
+Top: the Today section header sits flush at the top (under the safe-area inset). No separate status bar in the chrome; sync status surfaces in the sync debug panel (opened by tapping the status dot).
 
 Body: the list. Three buckets, each preceded by a sticky header (TODAY, SOON, LATER).
 
@@ -50,7 +50,7 @@ Row text: white, font-weight 700, slight negative letter-spacing, very subtle da
 
 Solid near-black background (`#0c0c0c`), opaque mid-grey text and strikethrough (`#6e6e6e`), 2px stroke with `text-decoration-skip-ink: none` so the line draws unbroken. Opaque grey (not low-alpha white) so the line and glyph layers don't compound where they overlap.
 
-Completed items keep their position in the heat-map sequence for v1. Sorting them to the bottom is a deferred decision (see build plan).
+Completed items keep their position in the heat-map sequence for v1. Sorting them to the bottom is a deferred decision.
 
 ### Typography
 
@@ -73,7 +73,7 @@ An empty bucket still renders its header (so the section remains identifiable), 
 
 ### Sync status indicator
 
-No always-visible chrome for sync status in v1. The sync status surfaces in the settings sheet (see Phase 10 of the build plan): last sync time, last commit SHA, pending change count, force-sync button. Users assume sync is working unless something fails; the settings sheet is where you check.
+No always-visible chrome for sync status in v1. Sync status surfaces in the sync debug panel (opened by tapping the status dot): last sync time, last commit SHA, pending change count, force-sync button. Users assume sync is working unless something fails; the panel is where you check.
 
 Earlier drafts placed a small colored dot at the top of the screen. Removed: it was visual noise that drew attention to a passive system most of the time.
 
@@ -172,17 +172,17 @@ Single file in the data repo: `today.md`.
 
 ```markdown
 ## Today
-- [ ] Email Marco about onboarding doc
-- [ ] Finish CycleWatch offline sync prototype
-- [x] Coffee with Sarah
+- [ ] Review pull request comments
+- [ ] Write release notes for v2
+- [x] Morning standup
 
 ## Soon
-- [ ] Book flights for July
-- [ ] Review skincare progress photos
+- [ ] Book travel for conference
+- [ ] Update project README
 
 ## Later
-- [ ] Research router table options
-- [ ] Plan workshop layout
+- [ ] Research keyboard options
+- [ ] Reorganize dev environment
 ```
 
 Rules:

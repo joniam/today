@@ -1,18 +1,17 @@
 # Today - Project Context for Claude Code
 
-This is `today`, a single-list PWA todo app inspired by Clear, built for Jonathan's daily prioritization workflow. Data lives in a separate private GitHub repo as a markdown file, also synced to an Obsidian vault.
+This is `today`, a single-list PWA todo app inspired by Clear, built for daily prioritization. Data lives in a separate private GitHub repo as a markdown file, also synced to an Obsidian vault.
 
 ## Read these first, in order
 
 1. `docs/design-spec.md` - what the app looks and feels like
 2. `docs/tech-spec.md` - how it's built, data model, sync algorithm
-3. `docs/build-plan.md` - phased plan you're executing
 
 (`docs/setup.md` exists for human reference, environment setup. Not needed for executing the build.)
 
 ## Working agreement
 
-- Execute one phase at a time. After each phase, stop and report what you did so Jonathan can verify.
+- After each significant change, stop and report what you did for verification.
 - Make small commits with clear messages.
 - Don't add dependencies beyond what's listed in the tech spec without flagging it.
 - Don't change the markdown file format. It's an interop contract with Obsidian.
@@ -26,7 +25,7 @@ This is `today`, a single-list PWA todo app inspired by Clear, built for Jonatha
 - No framework (no React, no Vue). Direct DOM. Vanilla TS.
 - Vanilla CSS, no preprocessor. Use CSS custom properties for theme values.
 - File organization per tech spec. Keep modules focused.
-- Avoid em-dashes in any user-facing text or code comments (Jonathan's preference).
+- Avoid em-dashes in any user-facing text or code comments.
 
 ## What to verify after each phase
 

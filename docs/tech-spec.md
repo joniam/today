@@ -97,7 +97,7 @@ Serialize strategy:
 
 **ID persistence:** Markdown has no place to store IDs. So IDs are local-only and assigned on parse by content+position heuristics. When syncing, we match items by `(bucket, normalized_text, done)` against the local set; if exact match, keep the local ID. If not, generate a new ID. This means an item edited externally may get a new ID, which is fine, the user never sees IDs.
 
-**Unknown content preservation (v1 decision):** Don't try. The file is owned by the app. If Jonathan edits it in Obsidian, he edits the structure as defined. If he adds free-form notes, they'll be dropped on next app save. Documented in setup notes. (Future: store unknown lines in a side file or in a YAML frontmatter block.)
+**Unknown content preservation (v1 decision):** Don't try. The file is owned by the app. If the user edits it in Obsidian, the structure defined above is expected. Free-form notes outside that structure will be dropped on next app save. (Future: store unknown lines in a side file or in a YAML frontmatter block.)
 
 ## Sync engine
 

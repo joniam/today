@@ -6,3 +6,5 @@ dist
 .env.local
 .vite
 .claude/
+docs/build-plan.md
+docs/future.md
